@@ -1,12 +1,117 @@
-# React + Vite
+# Alternative Lingvist
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+🌍 Lingvist benzeri dil öğrenme uygulaması
 
-Currently, two official plugins are available:
+## 📋 İçindekiler
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- [Kurulum](#kurulum)
+- [Veri Seti Hazırlama](#veri-seti-hazırlama)
+- [Dosya Yükleme](#dosya-yükleme)
 
-## Expanding the ESLint configuration
+## 🛠️ Teknolojiler
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Frontend**: React 18+
+- **Build Tool**: Vite
+- **Linting**: ESLint
+
+## 🚀 Kurulum
+
+### Ön Gereksinimler
+
+- Node.js (v16 veya üzeri)
+- npm veya yarn
+
+### Adımlar
+
+1. **Projeyi klonlayın**
+   ```bash
+   git clone https://github.com/EmrahFidan/Alternative-Lingvist.git
+   cd Alternative-Lingvist
+   ```
+
+2. **Bağımlılıkları yükleyin**
+   ```bash
+   npm install
+   ```
+
+3. **Geliştirme sunucusunu başlatın**
+   ```bash
+   npm run dev
+   ```
+
+4. **Uygulamayı açın**
+   
+   Tarayıcınızda `http://localhost:5173` adresine gidin
+
+## 📊 Veri Seti Hazırlama
+
+### Veri Formatı
+
+Uygulamanın çalışması için kelime verileri JSON formatında hazırlanmalıdır:
+
+```json
+{
+  "words": [
+    {
+      "id": 1,
+      "word": "hello",
+      "translation": "merhaba",
+      "sentence": "Hello, how are you?",
+      "sentenceTranslation": "Merhaba, nasılsın?",
+      "level": "beginner",
+      "audio": "audio/hello.mp3"
+    }
+  ]
+}
+```
+
+### Veri Seti Yapısı
+
+```
+src/data/
+├── languages/
+│   ├── english.json
+│   ├── spanish.json
+│   └── french.json
+└── audio/
+    ├── hello.mp3
+    └── goodbye.mp3
+```
+
+### Yeni Kelime Ekleme
+
+1. İlgili dil dosyasını açın (örn: `src/data/languages/english.json`)
+2. Yeni kelimeyi JSON formatında ekleyin
+3. Gerekirse ses dosyasını `src/data/audio/` klasörüne ekleyin
+
+## 📁 Dosya Yükleme
+
+### CSV Dosyası Yükleme
+
+CSV formatında kelime listesi yükleyebilirsiniz:
+
+```csv
+word,translation,sentence,sentenceTranslation,level
+hello,merhaba,"Hello, how are you?","Merhaba, nasılsın?",beginner
+goodbye,hoşçakal,Goodbye my friend,Hoşçakal arkadaşım,beginner
+```
+
+### Excel Dosyası Yükleme
+
+Excel (.xlsx) dosyalarını da destekler. Şu sütunları kullanın:
+- **A Sütunu**: word (kelime)
+- **B Sütunu**: translation (çeviri)
+- **C Sütunu**: sentence (örnek cümle)
+- **D Sütunu**: sentenceTranslation (cümle çevirisi)
+- **E Sütunu**: level (seviye: beginner/intermediate/advanced)
+
+### Ses Dosyaları
+
+- Format: MP3, WAV
+- Maksimum boyut: 5MB
+- Dosya adı: kelimenin kendisi (örn: hello.mp3)
+- Klasör: `src/data/audio/`
+
+---
+
+Daha fazla bilgi için [GitHub](https://github.com/EmrahFidan/Alternative-Lingvist) sayfasını ziyaret edin.
