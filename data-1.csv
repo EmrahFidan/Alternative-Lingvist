@@ -13,8 +13,4 @@ sentence,missingWord,translation,translationWithUnderline
 "The company needs to focus on its biggest ______s.","client","Şirketin en büyük müşterilerine odaklanması gerekiyor.","Şirketin en büyük <u>müşterilerine</u> odaklanması gerekiyor."
 "The organization ______s food and shelter for refugees.","provide","Kuruluş, mülteciler için yiyecek ve barınak sağlar.","Kuruluş, mülteciler için yiyecek ve barınak <u>sağlar</u>."
 "The case has attracted the ______ of the public and media.","interest","Dava, halkın ve medyanın ilgisini çekti.","Dava, halkın ve medyanın <u>ilgisini</u> çekti."
-<<<<<<< HEAD
 "The banks lend money to commerce and ______.","industry","Bankalar ticarete ve sanayiye borç para verir.","Bankalar ticarete ve <u>sanayiye</u> borç para verir."
-=======
-"The banks lend money to commerce and ______.","industry","Bankalar ticarete ve sanayiye borç para verir.","Bankalar ticarete ve <u>sanayiye</u> borç para verir."
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b

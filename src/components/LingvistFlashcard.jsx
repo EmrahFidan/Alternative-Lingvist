@@ -1,15 +1,9 @@
-
-<<<<<<< HEAD
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Levenshtein from 'fast-levenshtein';
 import CompletionScreen from './CompletionScreen';
-=======
-import { useState, useEffect, useMemo } from 'react';
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 import {
   Box,
   Typography,
-
   TextField,
   LinearProgress,
   IconButton,
@@ -24,7 +18,6 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 
-<<<<<<< HEAD
 // --- Yardımcı Fonksiyonlar (Bileşen Dışında) ---
 const editDistance = (s1, s2) => {
   s1 = s1.toLowerCase();
@@ -65,7 +58,7 @@ const calculateSimilarity = (s1, s2) => {
 
 import useSettingsStore from '../store/useSettingsStore';
 
-const LingvistFlashcard = () => {
+const LingvistFlashcard = ({ onViewChange }) => {
   const {
     targetGoal,
     currentProgress,
@@ -76,14 +69,9 @@ const LingvistFlashcard = () => {
   const [currentView, setCurrentView] = useState('practice'); // 'practice' veya 'completion'
 
   const handleNavigateToSettings = () => {
-    // Bu fonksiyonun App.jsx'e taşınması ve oradan props olarak geçirilmesi gerekir.
-    // Şimdilik, doğrudan bir view değişikliği yapıyoruz.
-    const onViewChange = (view) => {
-      // Bu, App.jsx'teki onViewChange fonksiyonunu taklit eder.
-      // Gerçek uygulamada, bu prop olarak geçirilmelidir.
-      console.log(`Görünüm değiştiriliyor: ${view}`);
-    };
-    onViewChange('settings');
+    if (onViewChange) {
+      onViewChange('settings');
+    }
   };
 
   const [userInput, setUserInput] = useState('');
@@ -107,16 +95,6 @@ const LingvistFlashcard = () => {
       return () => clearTimeout(timer);
     }
   }, [currentCardIndex, showFeedback]);
-=======
-const LingvistFlashcard = () => {
-  const [userInput, setUserInput] = useState('');
-  const [isCorrect, setIsCorrect] = useState(null);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [currentProgress, setCurrentProgress] = useState(17); // 17/25
-  const [targetGoal, setTargetGoal] = useState(25); // Hedef ayarlanabilir
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [flashcardData, setFlashcardData] = useState([]);
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 
   // Varsayılan veri
   const defaultData = [
@@ -171,7 +149,6 @@ const LingvistFlashcard = () => {
 
     // Cümlenin var olup olmadığını ve bir metin olup olmadığını kontrol et
     if (currentCard && typeof currentCard.sentence === 'string') {
-<<<<<<< HEAD
       let sentenceToProcess = currentCard.sentence;
       const missingWord = currentCard.missingWord;
 
@@ -199,16 +176,6 @@ const LingvistFlashcard = () => {
       
       // Debugging için konsola yazdır
       console.log("Parsed sentence - Start:", sentenceStart, "End:", sentenceEnd);
-=======
-      const parts = currentCard.sentence.split('___');
-      sentenceStart = parts[0];
-      if (parts.length > 1) {
-        sentenceEnd = parts[1];
-      } else {
-        // Bu durum, cümlede '___' bulunmadığında gerçekleşir.
-        console.warn("Uyarı: Cümlede '___' bulunamadı:", currentCard.sentence);
-      }
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
     } else if (flashcardData.length > 0) {
       console.error("Hata: currentCard.sentence bir metin değil veya eksik.", currentCard);
     }
@@ -222,27 +189,11 @@ const LingvistFlashcard = () => {
     };
   }, [flashcardData, currentCardIndex, currentProgress, targetGoal]);
 
-<<<<<<< HEAD
   const [feedbackColor, setFeedbackColor] = useState('default'); // default, success, error, warning
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
 
   const handleInputChange = (event) => {
     setUserInput(event.target.value);
-=======
-  const handleInputChange = (event) => {
-    const value = event.target.value;
-    setUserInput(value);
-    
-    // Otomatik kontrol - kullanıcı doğru kelimeyi yazarsa
-    if (value.toLowerCase().trim() === cardData.missingWord.toLowerCase()) {
-      setIsCorrect(true);
-      setShowFeedback(true);
-      // 2 saniye sonra sonraki soruya geç
-      setTimeout(() => {
-        handleNextQuestion();
-      }, 2000);
-    }
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
   };
 
   const handleKeyPress = (event) => {
@@ -252,7 +203,6 @@ const LingvistFlashcard = () => {
   };
 
   const checkAnswer = () => {
-<<<<<<< HEAD
     const userAnswer = userInput.toLowerCase().trim();
     const correctAnswer = cardData.missingWord.toLowerCase();
 
@@ -288,16 +238,6 @@ const LingvistFlashcard = () => {
           setUserInput('');
         }, 1000);
       }
-=======
-    const correct = userInput.toLowerCase().trim() === cardData.missingWord.toLowerCase();
-    setIsCorrect(correct);
-    setShowFeedback(true);
-    
-    if (correct) {
-      setTimeout(() => {
-        handleNextQuestion();
-      }, 2000);
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
     }
   };
 
@@ -305,11 +245,7 @@ const LingvistFlashcard = () => {
     setUserInput('');
     setIsCorrect(null);
     setShowFeedback(false);
-<<<<<<< HEAD
     incrementProgress();
-=======
-    setCurrentProgress(prev => prev + 1);
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
     
     // Sonraki karta geç
     if (flashcardData.length > 0) {
@@ -323,7 +259,6 @@ const LingvistFlashcard = () => {
     setShowFeedback(true);
     setTimeout(() => {
       handleNextQuestion();
-<<<<<<< HEAD
     }, 1000);
   };
 
@@ -333,15 +268,6 @@ const LingvistFlashcard = () => {
     setFeedbackColor('info'); // Cevap gösterildiğinde mavi renk
     if(inputRef.current) {
       inputRef.current.focus();
-=======
-    }, 3000);
-  };
-
-  const handleGoalChange = () => {
-    const newGoal = prompt('Günlük hedef sayısını giriniz:', targetGoal);
-    if (newGoal && !isNaN(newGoal) && parseInt(newGoal) > 0) {
-      setTargetGoal(parseInt(newGoal));
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
     }
   };
 
@@ -350,7 +276,6 @@ const LingvistFlashcard = () => {
     console.log('Playing audio...');
   };
 
-<<<<<<< HEAD
   if (currentProgress >= targetGoal) {
     return (
       <CompletionScreen 
@@ -359,13 +284,11 @@ const LingvistFlashcard = () => {
           resetProgress();
           setCurrentCardIndex(0);
         }}
-        onNavigateToSettings={() => onViewChange('settings')}
+        onNavigateToSettings={handleNavigateToSettings}
       />
     );
   }
 
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
   return (
     <Box
       sx={{
@@ -390,27 +313,8 @@ const LingvistFlashcard = () => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ color: 'text.primary', mr: 'auto', fontWeight: 'bold' }}>
-<<<<<<< HEAD
             {currentProgress}/{targetGoal}
           </Typography>
-=======
-            {cardData.progress.current}/{cardData.progress.total}
-          </Typography>
-          <Button
-            onClick={handleGoalChange}
-            size="small"
-            startIcon={<SettingsIcon />}
-            sx={{ 
-              color: 'primary.main',
-              mr: 2,
-              '&:hover': {
-                backgroundColor: 'rgba(96, 165, 250, 0.1)',
-              },
-            }}
-          >
-            Hedef Belirle
-          </Button>
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
           <IconButton
             onClick={handleSkip}
             size="small"
@@ -421,11 +325,7 @@ const LingvistFlashcard = () => {
         </Box>
         <LinearProgress
           variant="determinate"
-<<<<<<< HEAD
           value={(currentProgress / targetGoal) * 100}
-=======
-          value={(cardData.progress.current / cardData.progress.total) * 100}
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
           sx={{
             height: 8,
             borderRadius: 4,
@@ -479,7 +379,6 @@ const LingvistFlashcard = () => {
                 component="span"
                 sx={{
                   display: 'inline-block',
-<<<<<<< HEAD
                   verticalAlign: 'baseline', // Dikey hizalamayı baseline olarak ayarla
                   lineHeight: 1,
                   mx: 1.5, // Boşlukları daha da artır
@@ -507,29 +406,10 @@ const LingvistFlashcard = () => {
                       borderBottom: '2px solid rgba(255, 255, 255, 0.7)',
                       paddingBottom: '2px',
                       lineHeight: 'inherit',
-=======
-                  minWidth: '120px',
-                  borderBottom: '2px solid rgba(255, 255, 255, 0.3)',
-                  mx: 1,
-                  position: 'relative',
-                }}
-              >
-                {userInput && (
-                  <Typography
-                    component="span"
-                    sx={{
-                      color: showFeedback
-                        ? isCorrect
-                          ? 'secondary.main'
-                          : 'error.main'
-                        : 'primary.main',
-                      fontWeight: 500,
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
                     }}
                   >
                     {userInput}
                   </Typography>
-<<<<<<< HEAD
                 ) : (
                   // Harf sayısıyla tam olarak eşleşen kesikli çizgiler
                   <Box component="span" sx={{ display: 'inline-flex', gap: '0.8ch', alignItems: 'center' }}>
@@ -551,8 +431,6 @@ const LingvistFlashcard = () => {
                         />
                       ))}
                   </Box>
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
                 )}
               </Box>
               {cardData.sentenceEnd}
@@ -568,11 +446,7 @@ const LingvistFlashcard = () => {
             p: 3,
             mb: 4,
             border: '1px solid rgba(255, 255, 255, 0.1)',
-<<<<<<< HEAD
             maxWidth: 800,
-=======
-            maxWidth: 600,
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
             mx: 'auto',
             width: '100%',
           }}
@@ -582,22 +456,11 @@ const LingvistFlashcard = () => {
             sx={{
               color: 'text.secondary',
               textAlign: 'center',
-<<<<<<< HEAD
               fontSize: '1.2rem',
               lineHeight: 1.6,
               '& u': {
                 textDecoration: 'none', // Alt çizgiyi kaldır
                 color: 'primary.main', // Rengi tekrar belirgin yap
-=======
-              fontSize: '1.1rem',
-              lineHeight: 1.6,
-              '& u': {
-                textDecoration: 'underline',
-                textDecorationColor: 'primary.main',
-                textDecorationThickness: '2px',
-                textUnderlineOffset: '3px',
-                color: 'primary.main',
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
                 fontWeight: 'medium',
               },
             }}
@@ -626,16 +489,12 @@ const LingvistFlashcard = () => {
             placeholder="Kelimeyi yazın..."
             variant="outlined"
             disabled={showFeedback && isCorrect}
-<<<<<<< HEAD
             inputRef={inputRef}
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
             sx={{
               '& .MuiOutlinedInput-root': {
                 backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: 2,
                 fontSize: '1.1rem',
-<<<<<<< HEAD
                 transition: 'border-color 0.3s ease-in-out',
                 '& fieldset': {
                   borderWidth: 2,
@@ -654,25 +513,6 @@ const LingvistFlashcard = () => {
                 },
                 '&.Mui-focused fieldset': {
                   borderColor: showFeedback ? (feedbackColor === 'success' ? '#4caf50' : feedbackColor === 'error' ? '#f44336' : feedbackColor === 'warning' ? '#ffa726' : 'primary.main') : 'primary.main',
-=======
-                '& fieldset': {
-                  borderColor: showFeedback
-                    ? isCorrect
-                      ? 'secondary.main'
-                      : 'error.main'
-                    : 'rgba(255, 255, 255, 0.3)',
-                  borderWidth: 2,
-                },
-                '&:hover fieldset': {
-                  borderColor: showFeedback
-                    ? isCorrect
-                      ? 'secondary.main'
-                      : 'error.main'
-                    : 'primary.main',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: 'primary.main',
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
                 },
               },
               '& .MuiOutlinedInput-input': {
@@ -685,7 +525,6 @@ const LingvistFlashcard = () => {
           />
         </Box>
 
-<<<<<<< HEAD
         {/* Cevabı Göster Butonu */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Button 
@@ -696,65 +535,6 @@ const LingvistFlashcard = () => {
             Cevabı Göster
           </Button>
         </Box>
-
-=======
-        {/* Geri Bildirim Container */}
-        {showFeedback && (
-          <Fade in={showFeedback} timeout={500}>
-            <Box
-              sx={{
-                backgroundColor: 'background.paper',
-                borderRadius: 3,
-                p: 4,
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                maxWidth: 600,
-                mx: 'auto',
-                width: '100%',
-                textAlign: 'center',
-              }}
-            >
-              {isCorrect ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-                  <CheckIcon sx={{ color: 'secondary.main', mr: 1, fontSize: 32 }} />
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'secondary.main', fontWeight: 500 }}
-                  >
-                    Doğru!
-                  </Typography>
-                </Box>
-              ) : (
-                <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: 'error.main', fontWeight: 500, mb: 1 }}
-                  >
-                    Doğru cevap: {cardData.missingWord}
-                  </Typography>
-                </Box>
-              )}
-              
-              {/* Çeviri */}
-              <Box
-                sx={{
-                  p: 3,
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: 2,
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  mt: 2,
-                }}
-              >
-                <Typography
-                  variant="body1"
-                  sx={{ color: 'text.secondary', fontStyle: 'italic' }}
-                >
-                  {cardData.translation}
-                </Typography>
-              </Box>
-            </Box>
-          </Fade>
-        )}
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
       </Box>
     </Box>
   );

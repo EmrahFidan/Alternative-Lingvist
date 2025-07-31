@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 import { useState, useEffect } from 'react';
 import {
   Box,
@@ -15,21 +11,15 @@ import {
   TableRow,
   IconButton,
   Button,
-<<<<<<< HEAD
   Checkbox,
   Tooltip,
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 
 const ManageDataPage = () => {
   const [flashcards, setFlashcards] = useState([]);
-<<<<<<< HEAD
   const [selected, setSelected] = useState([]);
   const [revealedIndex, setRevealedIndex] = useState(null);
-=======
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 
   useEffect(() => {
     const savedData = localStorage.getItem('flashcardData');
@@ -43,7 +33,6 @@ const ManageDataPage = () => {
     }
   }, []);
 
-<<<<<<< HEAD
   const handleSelectAllClick = (event) => {
     if (event.target.checked) {
       const newSelecteds = flashcards.map((n, index) => index);
@@ -83,24 +72,6 @@ const ManageDataPage = () => {
   };
 
   const isSelected = (index) => selected.indexOf(index) !== -1;
-=======
-  const handleDelete = (indexToDelete) => {
-    const isConfirmed = window.confirm('Bu veriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.');
-    if (isConfirmed) {
-      const updatedFlashcards = flashcards.filter((_, index) => index !== indexToDelete);
-      setFlashcards(updatedFlashcards);
-      localStorage.setItem('flashcardData', JSON.stringify(updatedFlashcards));
-    }
-  };
-
-  const handleDeleteAll = () => {
-    const isConfirmed = window.confirm('TÜM verileri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.');
-    if (isConfirmed) {
-      setFlashcards([]);
-      localStorage.removeItem('flashcardData');
-    }
-  };
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
 
   return (
     <Box sx={{ p: 4, maxWidth: 1200, mx: 'auto' }}>
@@ -113,7 +84,6 @@ const ManageDataPage = () => {
             Mevcut tüm flashcard verilerinizi buradan görüntüleyebilir ve silebilirsiniz.
           </Typography>
         </Box>
-<<<<<<< HEAD
         {selected.length > 0 && (
           <Tooltip title="Seçili olan tüm verileri kalıcı olarak sil.">
             <Button
@@ -126,17 +96,6 @@ const ManageDataPage = () => {
             </Button>
           </Tooltip>
         )}
-=======
-        <Button
-          variant="contained"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={handleDeleteAll}
-          disabled={flashcards.length === 0}
-        >
-          Tüm Verileri Sil
-        </Button>
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
       </Box>
 
       <TableContainer component={Paper} sx={{ backgroundColor: 'background.paper', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
@@ -146,7 +105,6 @@ const ManageDataPage = () => {
               <TableCell sx={{ color: 'text.primary', fontWeight: 'bold' }}>İngilizce Cümle</TableCell>
               <TableCell sx={{ color: 'text.primary', fontWeight: 'bold' }}>Aranan Kelime</TableCell>
               <TableCell sx={{ color: 'text.primary', fontWeight: 'bold' }}>Türkçe Çeviri</TableCell>
-<<<<<<< HEAD
               <TableCell padding="checkbox" align="right">
                 <Checkbox
                   color="primary"
@@ -199,24 +157,6 @@ const ManageDataPage = () => {
                 </TableRow>
               );
             })}
-=======
-              <TableCell sx={{ color: 'text.primary', fontWeight: 'bold', textAlign: 'center' }}>İşlemler</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {flashcards.map((card, index) => (
-              <TableRow key={index}>
-                <TableCell sx={{ color: 'text.secondary' }}>{card.sentence}</TableCell>
-                <TableCell sx={{ color: 'primary.main', fontWeight: 'bold' }}>{card.missingWord}</TableCell>
-                <TableCell sx={{ color: 'text.secondary' }}>{card.translation}</TableCell>
-                <TableCell sx={{ textAlign: 'center' }}>
-                  <IconButton onClick={() => handleDelete(index)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
             {flashcards.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic', p: 4 }}>
@@ -231,8 +171,4 @@ const ManageDataPage = () => {
   );
 };
 
-<<<<<<< HEAD
 export default ManageDataPage;
-=======
-export default ManageDataPage;
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b

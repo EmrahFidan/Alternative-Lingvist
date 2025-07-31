@@ -26,8 +26,4 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
-<<<<<<< HEAD
 ])
-=======
-])
->>>>>>> 6bab33a0f929548b673c8567c32455a24369fe9b
