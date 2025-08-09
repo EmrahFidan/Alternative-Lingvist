@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Levenshtein from 'fast-levenshtein';
 import CompletionScreen from './CompletionScreen';
+import useSettingsStore from '../store/useSettingsStore';
 import {
   Box,
   Typography,
@@ -56,9 +58,8 @@ const calculateSimilarity = (s1, s2) => {
   return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
 };
 
-import useSettingsStore from '../store/useSettingsStore';
-
-const LingvistFlashcard = ({ onViewChange }) => {
+const LingvistFlashcard = () => {
+  const navigate = useNavigate();
   const {
     targetGoal,
     currentProgress,
@@ -66,12 +67,8 @@ const LingvistFlashcard = ({ onViewChange }) => {
     resetProgress,
   } = useSettingsStore();
 
-  const [currentView, setCurrentView] = useState('practice'); // 'practice' veya 'completion'
-
   const handleNavigateToSettings = () => {
-    if (onViewChange) {
-      onViewChange('settings');
-    }
+    navigate('/settings');
   };
 
   const [userInput, setUserInput] = useState('');
@@ -91,7 +88,7 @@ const LingvistFlashcard = ({ onViewChange }) => {
     if (!showFeedback && inputRef.current) {
       const timer = setTimeout(() => {
         inputRef.current.focus();
-      }, 100); // Kısa bir gecikme, render sonrası odaklanmayı garantiler
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [currentCardIndex, showFeedback]);
@@ -141,40 +138,31 @@ const LingvistFlashcard = ({ onViewChange }) => {
   const cardData = useMemo(() => {
     const currentCard = flashcardData.length > 0 ? flashcardData[currentCardIndex] : {};
 
-    // HATA AYIKLAMA: Mevcut kart verisini incelemek için konsola yazdır.
     console.log("Mevcut kart verisi:", currentCard);
 
     let sentenceStart = 'Veri yükleniyor...';
     let sentenceEnd = '';
 
-    // Cümlenin var olup olmadığını ve bir metin olup olmadığını kontrol et
     if (currentCard && typeof currentCard.sentence === 'string') {
       let sentenceToProcess = currentCard.sentence;
       const missingWord = currentCard.missingWord;
 
-      // Cümle içerisinde eksik kelimeyi bul ve yer tutucu ile değiştir.
-      // Bu, cümlenin tamamını içeren veri formatları için çalışır.
       if (missingWord && sentenceToProcess.includes(missingWord)) {
         sentenceToProcess = sentenceToProcess.replace(missingWord, '___');
       }
 
-      // Yer tutucuya göre cümleyi böl.
-      // Birden fazla yer tutucu formatını kontrol et.
       let parts;
       if (sentenceToProcess.includes('______')) {
         parts = sentenceToProcess.split('______');
       } else if (sentenceToProcess.includes('___')) {
         parts = sentenceToProcess.split('___');
       } else {
-        // Yer tutucu bulunamazsa, cümlenin tamamını başlangıç olarak al.
-        // Bu, eski veya bozuk verilerle uyumluluğu korur.
         parts = [sentenceToProcess, ''];
       }
       
       sentenceStart = parts[0].trim();
       sentenceEnd = parts.length > 1 ? parts[1].trim() : '';
       
-      // Debugging için konsola yazdır
       console.log("Parsed sentence - Start:", sentenceStart, "End:", sentenceEnd);
     } else if (flashcardData.length > 0) {
       console.error("Hata: currentCard.sentence bir metin değil veya eksik.", currentCard);
@@ -189,7 +177,7 @@ const LingvistFlashcard = ({ onViewChange }) => {
     };
   }, [flashcardData, currentCardIndex, currentProgress, targetGoal]);
 
-  const [feedbackColor, setFeedbackColor] = useState('default'); // default, success, error, warning
+  const [feedbackColor, setFeedbackColor] = useState('default');
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
 
   const handleInputChange = (event) => {
@@ -197,46 +185,74 @@ const LingvistFlashcard = ({ onViewChange }) => {
   };
 
   const handleKeyPress = (event) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !showFeedback) {
       checkAnswer();
     }
   };
+
+  // Küresel klavye kısayolları
+  useEffect(() => {
+    const handleGlobalKeyPress = (event) => {
+      if (document.activeElement !== inputRef.current) {
+        switch (event.key.toLowerCase()) {
+          case 'escape':
+            if (userInput) {
+              setUserInput('');
+              event.preventDefault();
+            }
+            break;
+          case 'tab':
+            handleShowAnswer();
+            event.preventDefault();
+            break;
+          case ' ':
+            if (showFeedback && isCorrect) {
+              handleNextQuestion();
+              event.preventDefault();
+            }
+            break;
+
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyPress);
+    return () => document.removeEventListener('keydown', handleGlobalKeyPress);
+  }, [userInput, showFeedback, isCorrect]);
 
   const checkAnswer = () => {
     const userAnswer = userInput.toLowerCase().trim();
     const correctAnswer = cardData.missingWord.toLowerCase();
 
-    setShowFeedback(true); // Sadece kenarlık renkleri için
-    setIsAnswerRevealed(false); // Panelin görünmesini engelle
+    setShowFeedback(true);
+    setIsAnswerRevealed(false);
 
     if (userAnswer === correctAnswer) {
-      // Doğru Cevap
       setIsCorrect(true);
       setFeedbackColor('success');
       setTimeout(() => {
         handleNextQuestion();
       }, 1000);
     } else {
-      // Yanlış veya Kısmen Doğru Cevap
       setIsCorrect(false);
       
       const distance = Levenshtein.get(userAnswer, correctAnswer);
       const similarity = 1 - distance / Math.max(userAnswer.length, correctAnswer.length);
 
       if (similarity > 0.4) {
-        // Kısmen Doğru
         setFeedbackColor('warning');
         setTimeout(() => {
           setShowFeedback(false);
           setUserInput('');
         }, 1500);
       } else {
-        // Tamamen Yanlış
         setFeedbackColor('error');
+        // Yanlış cevap için doğru cevabı göster ve 2 saniye sonra sonraki karta geç
+        setUserInput(cardData.missingWord);
+        setIsAnswerRevealed(true);
         setTimeout(() => {
-          setShowFeedback(false);
-          setUserInput('');
-        }, 1000);
+          handleNextQuestion();
+        }, 2000);
       }
     }
   };
@@ -247,32 +263,23 @@ const LingvistFlashcard = ({ onViewChange }) => {
     setShowFeedback(false);
     incrementProgress();
     
-    // Sonraki karta geç
     if (flashcardData.length > 0) {
       setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
     }
   };
 
-  const handleSkip = () => {
-    setUserInput(cardData.missingWord);
-    setIsCorrect(false);
-    setShowFeedback(true);
-    setTimeout(() => {
-      handleNextQuestion();
-    }, 1000);
-  };
+
 
   const handleShowAnswer = () => {
     setUserInput(cardData.missingWord);
     setShowFeedback(true);
-    setFeedbackColor('info'); // Cevap gösterildiğinde mavi renk
+    setFeedbackColor('info');
     if(inputRef.current) {
       inputRef.current.focus();
     }
   };
 
   const playAudio = () => {
-    // Ses çalma fonksiyonu
     console.log('Playing audio...');
   };
 
@@ -296,245 +303,261 @@ const LingvistFlashcard = ({ onViewChange }) => {
         backgroundColor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
+        p: 4,
       }}
     >
-      {/* Üst İlerleme Çubuğu */}
+      {/* Progress Bar Container */}
       <Box
         sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          p: 3,
           backgroundColor: 'background.paper',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 3,
+          p: 3,
+          mb: 3,
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: 1200,
+          mx: 'auto',
+          width: '100%',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ color: 'text.primary', mr: 'auto', fontWeight: 'bold' }}>
-            {currentProgress}/{targetGoal}
-          </Typography>
-          <IconButton
-            onClick={handleSkip}
-            size="small"
-            sx={{ color: 'text.secondary' }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </Box>
         <LinearProgress
           variant="determinate"
           value={(currentProgress / targetGoal) * 100}
           sx={{
-            height: 8,
-            borderRadius: 4,
+            height: 12,
+            borderRadius: 6,
             backgroundColor: 'rgba(255, 255, 255, 0.1)',
             '& .MuiLinearProgress-bar': {
               backgroundColor: 'secondary.main',
-              borderRadius: 4,
+              borderRadius: 6,
+            },
+            mb: 2,
+          }}
+        />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+            {currentProgress}/{targetGoal}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
+            %{Math.round((currentProgress / targetGoal) * 100)}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* İngilizce Cümle Container */}
+      <Box
+        sx={{
+          backgroundColor: 'background.paper',
+          borderRadius: 3,
+          p: 2,
+          mb: 4,
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: 1200,
+          mx: 'auto',
+          width: '100%',
+        }}
+      >
+        {/* Cümle */}
+        <Box sx={{ textAlign: 'center', mb: 4 }}>
+          <Typography
+            variant="h4"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 400,
+              fontSize: { xs: '1.5rem', sm: '1.8rem', md: '2rem' },
+              lineHeight: 1.4,
+              mb: 3,
+            }}
+          >
+            {cardData.sentenceStart}
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-block',
+                verticalAlign: 'baseline',
+                lineHeight: 1,
+                mx: 1.5,
+              }}
+            >
+              {userInput ? (
+                <Typography
+                  component="span"
+                  sx={{
+                    fontFamily: 'Roboto Mono, monospace',
+                    color: showFeedback
+                      ? feedbackColor === 'success'
+                        ? 'secondary.main'
+                        : feedbackColor === 'error'
+                          ? 'error.main'
+                          : feedbackColor === 'warning'
+                            ? '#ffa726'
+                            : feedbackColor === 'info'
+                              ? '#29b6f6'
+                              : 'primary.main'
+                      : 'primary.main',
+                    fontWeight: 500,
+                    fontSize: '0.9em',
+                    borderBottom: '2px solid rgba(255, 255, 255, 0.7)',
+                    paddingBottom: '2px',
+                    lineHeight: 'inherit',
+                  }}
+                >
+                  {userInput}
+                </Typography>
+              ) : (
+                <Box component="span" sx={{ display: 'inline-flex', gap: '0.8ch', alignItems: 'center' }}>
+                  {cardData.missingWord &&
+                    cardData.missingWord.split(' ').map((word, index) => (
+                      <span
+                        key={index}
+                        style={{
+                          width: `${word.length}ch`,
+                          display: 'inline-block',
+                          backgroundImage:
+                            'linear-gradient(to right, rgba(255, 255, 255, 0.5) 70%, transparent 30%)',
+                          backgroundSize: '1ch 2px',
+                          backgroundRepeat: 'repeat-x',
+                          backgroundPosition: '0 100%',
+                          height: '1.2em',
+                          paddingBottom: '2px',
+                        }}
+                      />
+                    ))}
+                </Box>
+              )}
+            </Box>
+            {cardData.sentenceEnd}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Türkçe Çeviri Container */}
+      <Box
+        sx={{
+          backgroundColor: 'background.paper',
+          borderRadius: 3,
+          p: 2,
+          mb: 4,
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: 1200,
+          mx: 'auto',
+          width: '100%',
+        }}
+      >
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'text.secondary',
+            textAlign: 'center',
+            fontSize: '1.2rem',
+            lineHeight: 1.6,
+            '& u': {
+              textDecoration: 'none',
+              color: 'primary.main',
+              fontWeight: 'medium',
             },
           }}
+          dangerouslySetInnerHTML={{ __html: cardData.translationWithUnderline }}
         />
       </Box>
 
-      {/* Ana İçerik Alanı */}
+      {/* Giriş Alanı Container */}
       <Box
         sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          px: 4,
-          py: 4,
-          mt: 12, // Üst bar için space
+          backgroundColor: 'background.paper',
+          borderRadius: 3,
+          p: 2,
+          mb: 4,
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: 800,
+          mx: 'auto',
+          width: '100%',
         }}
       >
-        {/* Container */}
-        <Box
+        <TextField
+          fullWidth
+          value={userInput}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          placeholder="Kelimeyi yazın..."
+          variant="outlined"
+          disabled={showFeedback && isCorrect}
+          inputRef={inputRef}
           sx={{
-            backgroundColor: 'background.paper',
-            borderRadius: 3,
-            p: 4,
-            mb: 4,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            maxWidth: 800,
-            mx: 'auto',
-            width: '100%',
-          }}
-        >
-          {/* Cümle */}
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Typography
-              variant="h4"
-              sx={{
-                color: 'primary.main',
-                fontWeight: 400,
-                fontSize: { xs: '1.5rem', sm: '1.8rem', md: '2rem' },
-                lineHeight: 1.4,
-                mb: 3,
-              }}
-            >
-              {cardData.sentenceStart}
-              <Box
-                component="span"
-                sx={{
-                  display: 'inline-block',
-                  verticalAlign: 'baseline', // Dikey hizalamayı baseline olarak ayarla
-                  lineHeight: 1,
-                  mx: 1.5, // Boşlukları daha da artır
-                }}
-              >
-                {userInput ? (
-                  // Kullanıcı girdisi varsa, metni kendi alt çizgisiyle göster
-                  <Typography
-                    component="span"
-                    sx={{
-                      fontFamily: 'Roboto Mono, monospace',
-                      color: showFeedback
-                        ? feedbackColor === 'success'
-                          ? 'secondary.main'
-                          : feedbackColor === 'error'
-                            ? 'error.main'
-                            : feedbackColor === 'warning'
-                              ? '#ffa726' // Turuncu renk
-                              : feedbackColor === 'info'
-                                ? '#29b6f6' // Mavi renk (info)
-                                : 'primary.main'
-                        : 'primary.main',
-                      fontWeight: 500,
-                      fontSize: '0.9em',
-                      borderBottom: '2px solid rgba(255, 255, 255, 0.7)',
-                      paddingBottom: '2px',
-                      lineHeight: 'inherit',
-                    }}
-                  >
-                    {userInput}
-                  </Typography>
-                ) : (
-                  // Harf sayısıyla tam olarak eşleşen kesikli çizgiler
-                  <Box component="span" sx={{ display: 'inline-flex', gap: '0.8ch', alignItems: 'center' }}>
-                    {cardData.missingWord &&
-                      cardData.missingWord.split(' ').map((word, index) => (
-                        <span
-                          key={index}
-                          style={{
-                            width: `${word.length}ch`,
-                            display: 'inline-block',
-                            backgroundImage:
-                              'linear-gradient(to right, rgba(255, 255, 255, 0.5) 70%, transparent 30%)',
-                            backgroundSize: '1ch 2px',
-                            backgroundRepeat: 'repeat-x',
-                            backgroundPosition: '0 100%',
-                            height: '1.2em',
-                            paddingBottom: '2px',
-                          }}
-                        />
-                      ))}
-                  </Box>
-                )}
-              </Box>
-              {cardData.sentenceEnd}
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Türkçe Çeviri Container */}
-        <Box
-          sx={{
-            backgroundColor: 'background.paper',
-            borderRadius: 3,
-            p: 3,
-            mb: 4,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            maxWidth: 800,
-            mx: 'auto',
-            width: '100%',
-          }}
-        >
-          <Typography
-            variant="body1"
-            sx={{
-              color: 'text.secondary',
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 2,
+              fontSize: '1.1rem',
+              transition: 'border-color 0.3s ease-in-out',
+              '& fieldset': {
+                borderWidth: 2,
+                borderColor: showFeedback 
+                  ? feedbackColor === 'success' 
+                    ? '#4caf50'
+                    : feedbackColor === 'error' 
+                      ? '#f44336'
+                      : feedbackColor === 'warning' 
+                        ? '#ffa726'
+                        : 'rgba(255, 255, 255, 0.3)'
+                  : 'rgba(255, 255, 255, 0.3)',
+              },
+              '&:hover fieldset': {
+                borderColor: showFeedback ? (feedbackColor === 'success' ? '#4caf50' : feedbackColor === 'error' ? '#f44336' : feedbackColor === 'warning' ? '#ffa726' : 'primary.main') : 'primary.main',
+              },
+              '&.Mui-focused fieldset': {
+                borderColor: showFeedback ? (feedbackColor === 'success' ? '#4caf50' : feedbackColor === 'error' ? '#f44336' : feedbackColor === 'warning' ? '#ffa726' : 'primary.main') : 'primary.main',
+              },
+            },
+            '& .MuiOutlinedInput-input': {
               textAlign: 'center',
-              fontSize: '1.2rem',
-              lineHeight: 1.6,
-              '& u': {
-                textDecoration: 'none', // Alt çizgiyi kaldır
-                color: 'primary.main', // Rengi tekrar belirgin yap
-                fontWeight: 'medium',
-              },
-            }}
-            dangerouslySetInnerHTML={{ __html: cardData.translationWithUnderline }}
-          />
-        </Box>
-
-        {/* Giriş Alanı Container */}
-        <Box
-          sx={{
-            backgroundColor: 'background.paper',
-            borderRadius: 3,
-            p: 3,
-            mb: 4,
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            maxWidth: 500,
-            mx: 'auto',
-            width: '100%',
+              py: 2,
+              color: 'text.primary',
+            },
           }}
-        >
-          <TextField
-            fullWidth
-            value={userInput}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Kelimeyi yazın..."
-            variant="outlined"
-            disabled={showFeedback && isCorrect}
-            inputRef={inputRef}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: 2,
-                fontSize: '1.1rem',
-                transition: 'border-color 0.3s ease-in-out',
-                '& fieldset': {
-                  borderWidth: 2,
-                  borderColor: showFeedback 
-                    ? feedbackColor === 'success' 
-                      ? '#4caf50' // Yeşil
-                      : feedbackColor === 'error' 
-                        ? '#f44336' // Kırmızı
-                        : feedbackColor === 'warning' 
-                          ? '#ffa726' // Turuncu
-                          : 'rgba(255, 255, 255, 0.3)'
-                    : 'rgba(255, 255, 255, 0.3)',
-                },
-                '&:hover fieldset': {
-                  borderColor: showFeedback ? (feedbackColor === 'success' ? '#4caf50' : feedbackColor === 'error' ? '#f44336' : feedbackColor === 'warning' ? '#ffa726' : 'primary.main') : 'primary.main',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: showFeedback ? (feedbackColor === 'success' ? '#4caf50' : feedbackColor === 'error' ? '#f44336' : feedbackColor === 'warning' ? '#ffa726' : 'primary.main') : 'primary.main',
-                },
-              },
-              '& .MuiOutlinedInput-input': {
-                textAlign: 'center',
-                py: 2,
-                color: 'text.primary',
-              },
-            }}
-            autoFocus
-          />
-        </Box>
+          autoFocus
+        />
+      </Box>
 
-        {/* Cevabı Göster Butonu */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Button 
-            variant="outlined" 
-            onClick={handleShowAnswer}
-            disabled={showFeedback && isCorrect}
-          >
-            Cevabı Göster
-          </Button>
-        </Box>
+      {/* Butonlar */}
+      <Box sx={{ textAlign: 'center', mb: 4 }}>
+        <Button 
+          variant="outlined" 
+          onClick={handleShowAnswer}
+          disabled={showFeedback && isCorrect}
+        >
+          Cevabı Göster (Tab)
+        </Button>
+      </Box>
+
+      {/* Klavye Yardım Paneli */}
+      <Box 
+        sx={{ 
+          position: 'fixed',
+          bottom: 16,
+          right: 16,
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          p: 2,
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          maxWidth: 200,
+          fontSize: '0.75rem',
+          zIndex: 1000
+        }}
+      >
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1, fontWeight: 'bold' }}>
+          Klavye Kısayolları:
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+          Enter: Kontrol Et
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+          Tab: Cevabı Göster
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+          Esc: Temizle
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+          Space: Sonraki (doğru ise)
+        </Typography>
       </Box>
     </Box>
   );

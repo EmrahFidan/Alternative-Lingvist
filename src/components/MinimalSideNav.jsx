@@ -4,74 +4,107 @@ import {
   ListItem,
   ListItemButton,
   ListItemIcon,
-  IconButton,
+  ListItemText,
   Box,
   Tooltip,
+  Typography,
+  Divider,
+  IconButton,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  School as SchoolIcon,
-  Quiz as QuizIcon,
   Settings as SettingsIcon,
   PlayArrow as PlayArrowIcon,
-  Home as HomeIcon,
   Storage as StorageIcon,
+  Add as AddIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const MinimalSideNav = ({ open, onToggle, currentView, onViewChange }) => {
+const MinimalSideNav = ({ open, onToggle }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const menuItems = [
     {
       text: 'Pratik',
       icon: <PlayArrowIcon />,
-      view: 'practice',
+      path: '/',
     },
     {
       text: 'Veri Ekle',
-      icon: <SchoolIcon />,
-      view: 'addData',
+      icon: <AddIcon />,
+      path: '/add-data',
     },
     {
       text: 'Veri Yönetimi',
       icon: <StorageIcon />,
-      view: 'manageData',
+      path: '/manage-data',
     },
     {
       text: 'Ayarlar',
       icon: <SettingsIcon />,
-      view: 'settings',
+      path: '/settings',
     },
   ];
 
+  const handleItemClick = (path) => {
+    navigate(path);
+    if (isMobile) {
+      onToggle(); // Mobilde tıklandıktan sonra menüyü kapat
+    }
+  };
+
   return (
     <Drawer
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
       anchor="left"
       open={open}
+      onClose={onToggle}
+      ModalProps={{
+        keepMounted: true, // Better open performance on mobile.
+      }}
       sx={{
-        width: 60,
+        width: 240,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: 60,
+          width: 240,
           boxSizing: 'border-box',
           backgroundColor: 'background.paper',
           borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          overflow: 'hidden',
+          height: '100%',
         },
       }}
     >
-      {/* Menü Toggle Butonu */}
+      {/* Logo/Başlık Alanı */}
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          p: 1,
+          justifyContent: 'space-between',
+          p: 3,
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <IconButton 
-          onClick={onToggle} 
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: 'primary.main', 
+            fontWeight: 'bold',
+            textAlign: 'center'
+          }}
+        >
+          Alternative
+          <br />
+          <Typography component="span" variant="h6" sx={{ color: 'secondary.main' }}>
+            Lingvist
+          </Typography>
+        </Typography>
+        <IconButton
+          onClick={onToggle}
           sx={{ 
             color: 'text.secondary',
             '&:hover': {
@@ -84,39 +117,63 @@ const MinimalSideNav = ({ open, onToggle, currentView, onViewChange }) => {
       </Box>
       
       {/* Menü Öğeleri */}
-      <List sx={{ flexGrow: 1, pt: 2, px: 1 }}>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-            <Tooltip title={item.text} placement="right">
+      <List sx={{ flexGrow: 1, pt: 2, px: 2 }}>
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          
+          return (
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
-                onClick={() => onViewChange(item.view)}
+                onClick={() => handleItemClick(item.path)}
                 sx={{
                   borderRadius: 2,
                   minHeight: 48,
-                  justifyContent: 'center',
                   px: 2,
-                  backgroundColor: currentView === item.view ? 'rgba(96, 165, 250, 0.2)' : 'transparent',
+                  backgroundColor: isActive ? 'rgba(96, 165, 250, 0.15)' : 'transparent',
+                  border: isActive ? '1px solid rgba(96, 165, 250, 0.3)' : '1px solid transparent',
                   '&:hover': {
-                    backgroundColor: currentView === item.view 
-                      ? 'rgba(96, 165, 250, 0.3)' 
-                      : 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: isActive 
+                      ? 'rgba(96, 165, 250, 0.2)' 
+                      : 'rgba(255, 255, 255, 0.05)',
                   },
                 }}
               >
                 <ListItemIcon 
                   sx={{ 
-                    color: currentView === item.view ? 'primary.main' : 'text.secondary',
-                    minWidth: 'auto',
-                    justifyContent: 'center',
+                    color: isActive ? 'primary.main' : 'text.secondary',
+                    minWidth: 40,
                   }}
                 >
                   {item.icon}
                 </ListItemIcon>
+                <ListItemText 
+                  primary={item.text}
+                  sx={{ 
+                    '& .MuiListItemText-primary': {
+                      color: isActive ? 'primary.main' : 'text.primary',
+                      fontWeight: isActive ? 600 : 400,
+                    }
+                  }}
+                />
               </ListItemButton>
-            </Tooltip>
-          </ListItem>
-        ))}
+            </ListItem>
+          );
+        })}
       </List>
+
+      {/* Alt Bilgi */}
+      <Box sx={{ p: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            color: 'text.secondary',
+            textAlign: 'center',
+            display: 'block'
+          }}
+        >
+          v1.0.0
+        </Typography>
+      </Box>
     </Drawer>
   );
 };
