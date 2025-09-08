@@ -76,6 +76,7 @@ const LingvistFlashcard = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [flashcardData, setFlashcardData] = useState([]);
+  const [wordProgress, setWordProgress] = useState(0); // Her kelime için 0-3 arası ilerleme
   const inputRef = useRef(null);
 
   // Bileşen yüklendiğinde ilerlemeyi sıfırla
@@ -93,25 +94,28 @@ const LingvistFlashcard = () => {
     }
   }, [currentCardIndex, showFeedback]);
 
-  // Varsayılan veri
+  // Varsayılan veri - Her kelime için tekrar sayısı eklendi
   const defaultData = [
     {
       sentence: "I went to lunch with some of my",
       missingWord: "friends",
       translation: "Ben arkadaşlarımdan bazıları ile öğle yemeğine gittim.",
       translationWithUnderline: "Ben <u>arkadaşlarımdan</u> bazıları ile öğle yemeğine gittim.",
+      repeatCount: 0, // 0-2 arası, 3'te sonraki kelimeye geç
     },
     {
       sentence: "She is studying for her",
       missingWord: "exam",
       translation: "O sınavı için çalışıyor.",
       translationWithUnderline: "O <u>sınavı</u> için çalışıyor.",
+      repeatCount: 0,
     },
     {
       sentence: "We need to buy some",
       missingWord: "groceries",
       translation: "Biraz market alışverişi yapmamız gerekiyor.",
       translationWithUnderline: "Biraz <u>market alışverişi</u> yapmamız gerekiyor.",
+      repeatCount: 0,
     },
   ];
 
@@ -122,7 +126,12 @@ const LingvistFlashcard = () => {
       try {
         const parsedData = JSON.parse(savedData);
         if (parsedData.length > 0) {
-          setFlashcardData(parsedData);
+          // Eski veriyi yeni format ile uyumlu hale getir
+          const updatedData = parsedData.map(card => ({
+            ...card,
+            repeatCount: card.repeatCount || 0
+          }));
+          setFlashcardData(updatedData);
         } else {
           setFlashcardData(defaultData);
         }
@@ -134,6 +143,14 @@ const LingvistFlashcard = () => {
       setFlashcardData(defaultData);
     }
   }, []);
+
+  // Mevcut kelimenin tekrar durumunu güncelle
+  useEffect(() => {
+    if (flashcardData.length > 0) {
+      const currentCard = flashcardData[currentCardIndex];
+      setWordProgress(currentCard?.repeatCount || 0);
+    }
+  }, [flashcardData, currentCardIndex]);
 
   const cardData = useMemo(() => {
     const currentCard = flashcardData.length > 0 ? flashcardData[currentCardIndex] : {};
@@ -258,14 +275,28 @@ const LingvistFlashcard = () => {
   };
 
   const handleNextQuestion = () => {
+    // Mevcut kelimenin tekrar sayısını artır
+    const updatedData = flashcardData.map((card, index) => {
+      if (index === currentCardIndex) {
+        const newRepeatCount = card.repeatCount + 1;
+        return { ...card, repeatCount: newRepeatCount };
+      }
+      return card;
+    });
+    
+    setFlashcardData(updatedData);
+    localStorage.setItem('flashcardData', JSON.stringify(updatedData));
+    
+    // Eğer kelime 5 kez tekrarlandıysa sonraki kelimeye geç
+    const currentCard = flashcardData[currentCardIndex];
+    if (currentCard.repeatCount >= 4) { // 0,1,2,3,4 = 5 tekrar
+      setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
+      incrementProgress();
+    }
+    
     setUserInput('');
     setIsCorrect(null);
     setShowFeedback(false);
-    incrementProgress();
-    
-    if (flashcardData.length > 0) {
-      setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
-    }
   };
 
 
@@ -303,67 +334,51 @@ const LingvistFlashcard = () => {
         backgroundColor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         p: 4,
       }}
     >
-      {/* Progress Bar Container */}
+      {/* Ana Container - Tüm içerik tek alanda */}
       <Box
         sx={{
           backgroundColor: 'background.paper',
           borderRadius: 3,
-          p: 3,
-          mb: 3,
+          p: 4,
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 1200,
-          mx: 'auto',
+          maxWidth: 900,
           width: '100%',
+          position: 'relative',
         }}
       >
-        <LinearProgress
-          variant="determinate"
-          value={(currentProgress / targetGoal) * 100}
-          sx={{
-            height: 12,
-            borderRadius: 6,
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            '& .MuiLinearProgress-bar': {
-              backgroundColor: 'secondary.main',
-              borderRadius: 6,
-            },
-            mb: 2,
-          }}
-        />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-            {currentProgress}/{targetGoal}
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'secondary.main', fontWeight: 'bold' }}>
-            %{Math.round((currentProgress / targetGoal) * 100)}
-          </Typography>
+        {/* Kelime Tekrar Progress'i - Üst Orta */}
+        <Box sx={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {[0, 1, 2, 3, 4].map(step => (
+              <Box
+                key={step}
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor: step < wordProgress 
+                    ? 'secondary.main' 
+                    : 'rgba(255, 255, 255, 0.2)',
+                  transition: 'background-color 0.3s ease',
+                }}
+              />
+            ))}
+          </Box>
         </Box>
-      </Box>
 
-      {/* İngilizce Cümle Container */}
-      <Box
-        sx={{
-          backgroundColor: 'background.paper',
-          borderRadius: 3,
-          p: 2,
-          mb: 4,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 1200,
-          mx: 'auto',
-          width: '100%',
-        }}
-      >
-        {/* Cümle */}
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
+        {/* İngilizce Cümle */}
+        <Box sx={{ textAlign: 'center', mb: 4, pb: 3, mt: 3 }}>
           <Typography
-            variant="h4"
+            variant="h5"
             sx={{
               color: 'primary.main',
               fontWeight: 400,
-              fontSize: { xs: '1.5rem', sm: '1.8rem', md: '2rem' },
+              fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
               lineHeight: 1.4,
               mb: 3,
             }}
@@ -428,28 +443,20 @@ const LingvistFlashcard = () => {
             {cardData.sentenceEnd}
           </Typography>
         </Box>
-      </Box>
+        
+        {/* Divider Line */}
+        <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)', mb: 4 }} />
 
-      {/* Türkçe Çeviri Container */}
-      <Box
-        sx={{
-          backgroundColor: 'background.paper',
-          borderRadius: 3,
-          p: 2,
-          mb: 4,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 1200,
-          mx: 'auto',
-          width: '100%',
-        }}
-      >
+        {/* Türkçe Çeviri */}
         <Typography
           variant="body1"
           sx={{
             color: 'text.secondary',
             textAlign: 'center',
-            fontSize: '1.2rem',
+            fontSize: '1rem',
             lineHeight: 1.6,
+            mb: 4,
+            pb: 3,
             '& u': {
               textDecoration: 'none',
               color: 'primary.main',
@@ -458,21 +465,11 @@ const LingvistFlashcard = () => {
           }}
           dangerouslySetInnerHTML={{ __html: cardData.translationWithUnderline }}
         />
-      </Box>
+        
+        {/* Divider Line */}
+        <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)', mb: 4 }} />
 
-      {/* Giriş Alanı Container */}
-      <Box
-        sx={{
-          backgroundColor: 'background.paper',
-          borderRadius: 3,
-          p: 2,
-          mb: 4,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 800,
-          mx: 'auto',
-          width: '100%',
-        }}
-      >
+        {/* Giriş Alanı */}
         <TextField
           fullWidth
           value={userInput}
@@ -486,7 +483,7 @@ const LingvistFlashcard = () => {
             '& .MuiOutlinedInput-root': {
               backgroundColor: 'rgba(255, 255, 255, 0.05)',
               borderRadius: 2,
-              fontSize: '1.1rem',
+              fontSize: '1rem',
               transition: 'border-color 0.3s ease-in-out',
               '& fieldset': {
                 borderWidth: 2,
@@ -515,18 +512,29 @@ const LingvistFlashcard = () => {
           }}
           autoFocus
         />
+        
+        {/* Progress Bar - En Alt */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 4 }}>
+          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 'bold', minWidth: 'fit-content' }}>
+            {currentProgress}/{targetGoal}
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={(currentProgress / targetGoal) * 100}
+            sx={{
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                backgroundColor: 'secondary.main',
+                borderRadius: 6,
+              },
+              flexGrow: 1,
+            }}
+          />
+        </Box>
       </Box>
 
-      {/* Butonlar */}
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        <Button 
-          variant="outlined" 
-          onClick={handleShowAnswer}
-          disabled={showFeedback && isCorrect}
-        >
-          Cevabı Göster (Tab)
-        </Button>
-      </Box>
 
       {/* Klavye Yardım Paneli */}
       <Box 

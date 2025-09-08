@@ -6,7 +6,8 @@ import MinimalSideNav from './components/MinimalSideNav';
 import AddDataPage from './components/AddDataPage';
 import ManageDataPage from './components/ManageDataPage';
 import SettingsPage from './components/SettingsPage';
-import { Box } from '@mui/material';
+import { Box, IconButton } from '@mui/material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 
 function App() {
   const [sideNavOpen, setSideNavOpen] = useState(window.innerWidth > 768);
@@ -33,6 +34,27 @@ function App() {
         open={sideNavOpen}
         onToggle={handleSideNavToggle}
       />
+      
+      {/* Menu Toggle Button - Always Visible */}
+      {!sideNavOpen && (
+        <IconButton
+          onClick={handleSideNavToggle}
+          sx={{
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            zIndex: 1300,
+            backgroundColor: 'background.paper',
+            color: 'primary.main',
+            boxShadow: 2,
+            '&:hover': {
+              backgroundColor: 'rgba(96, 165, 250, 0.1)',
+            },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      )}
       
       {/* Ana İçerik */}
       <Box 
