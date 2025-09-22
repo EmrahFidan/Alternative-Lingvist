@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import LingvistFlashcard from './components/LingvistFlashcard';
 import MinimalSideNav from './components/MinimalSideNav';
@@ -11,22 +11,11 @@ import { Menu as MenuIcon } from '@mui/icons-material';
 
 function App() {
   const [sideNavOpen, setSideNavOpen] = useState(window.innerWidth > 768);
-  const location = useLocation();
 
   const handleSideNavToggle = () => {
     setSideNavOpen(!sideNavOpen);
   };
 
-  // Sayfa başlıklarını belirle
-  const getPageTitle = () => {
-    switch (location.pathname) {
-      case '/': return 'Pratik';
-      case '/add-data': return 'Veri Ekleme';
-      case '/manage-data': return 'Veri Yönetimi';
-      case '/settings': return 'Ayarlar';
-      default: return 'Alternative Lingvist';
-    }
-  };
 
   return (
     <Layout>

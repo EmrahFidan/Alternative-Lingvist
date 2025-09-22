@@ -161,11 +161,37 @@ const MinimalSideNav = ({ open, onToggle }) => {
         })}
       </List>
 
+      {/* Klavye Kısayolları */}
+      {location.pathname === '/' && (
+        <Box sx={{ p: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 'bold',
+              display: 'block',
+              mb: 1
+            }}
+          >
+            ⌨️ Klavye Kısayolları:
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }}>
+            Enter → Kontrol Et
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }}>
+            Tab → Cevabı Göster
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.7rem' }}>
+            Esc → Temizle
+          </Typography>
+        </Box>
+      )}
+
       {/* Alt Bilgi */}
       <Box sx={{ p: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
-        <Typography 
-          variant="caption" 
-          sx={{ 
+        <Typography
+          variant="caption"
+          sx={{
             color: 'text.secondary',
             textAlign: 'center',
             display: 'block'

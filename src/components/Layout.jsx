@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { Box, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
-import MinimalSideNav from './MinimalSideNav';
 
 const theme = createTheme({
   palette: {

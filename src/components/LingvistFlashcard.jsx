@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Levenshtein from 'fast-levenshtein';
 import CompletionScreen from './CompletionScreen';
@@ -20,42 +20,87 @@ import {
   Settings as SettingsIcon,
 } from '@mui/icons-material';
 
-// --- Yardımcı Fonksiyonlar (Bileşen Dışında) ---
-const editDistance = (s1, s2) => {
-  s1 = s1.toLowerCase();
-  s2 = s2.toLowerCase();
-  const costs = [];
-  for (let i = 0; i <= s1.length; i++) {
-    let lastValue = i;
-    for (let j = 0; j <= s2.length; j++) {
-      if (i === 0) {
-        costs[j] = j;
-      } else if (j > 0) {
-        let newValue = costs[j - 1];
-        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-          newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-        }
-        costs[j - 1] = lastValue;
-        lastValue = newValue;
-      }
-    }
-    if (i > 0) costs[s2.length] = lastValue;
-  }
-  return costs[s2.length];
-};
 
-const calculateSimilarity = (s1, s2) => {
-  let longer = s1;
-  let shorter = s2;
-  if (s1.length < s2.length) {
-    longer = s2;
-    shorter = s1;
+
+
+// Function to generate word variations (plural/singular forms)
+const generateWordVariations = (word) => {
+  const variations = [];
+  const lowerWord = word.toLowerCase();
+
+  // Add the original word
+  variations.push(word);
+
+  // Handle common plural rules
+  if (lowerWord.endsWith('s')) {
+    // If word ends with 's', try removing it (plural -> singular)
+    const singular = lowerWord.slice(0, -1);
+    variations.push(singular);
+    variations.push(singular.charAt(0).toUpperCase() + singular.slice(1));
+  } else {
+    // If word doesn't end with 's', try adding 's' (singular -> plural)
+    const plural = lowerWord + 's';
+    variations.push(plural);
+    variations.push(plural.charAt(0).toUpperCase() + plural.slice(1));
   }
-  const longerLength = longer.length;
-  if (longerLength === 0) {
-    return 1.0;
+
+  // Handle words ending with 'es' (e.g., boxes, wishes)
+  if (lowerWord.endsWith('es')) {
+    const withoutEs = lowerWord.slice(0, -2);
+    variations.push(withoutEs);
+    variations.push(withoutEs.charAt(0).toUpperCase() + withoutEs.slice(1));
+  } else if (!lowerWord.endsWith('s')) {
+    const withEs = lowerWord + 'es';
+    variations.push(withEs);
+    variations.push(withEs.charAt(0).toUpperCase() + withEs.slice(1));
   }
-  return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+
+  // Handle words ending with 'y' -> 'ies' (e.g., city -> cities)
+  if (lowerWord.endsWith('ies')) {
+    const withY = lowerWord.slice(0, -3) + 'y';
+    variations.push(withY);
+    variations.push(withY.charAt(0).toUpperCase() + withY.slice(1));
+  } else if (lowerWord.endsWith('y') && lowerWord.length > 1) {
+    const withIes = lowerWord.slice(0, -1) + 'ies';
+    variations.push(withIes);
+    variations.push(withIes.charAt(0).toUpperCase() + withIes.slice(1));
+  }
+
+  // Handle some irregular plurals
+  const irregulars = {
+    'child': 'children',
+    'children': 'child',
+    'man': 'men',
+    'men': 'man',
+    'woman': 'women',
+    'women': 'woman',
+    'person': 'people',
+    'people': 'person',
+    'foot': 'feet',
+    'feet': 'foot',
+    'tooth': 'teeth',
+    'teeth': 'tooth',
+    'mouse': 'mice',
+    'mice': 'mouse',
+    'goose': 'geese',
+    'geese': 'goose'
+  };
+
+  if (irregulars[lowerWord]) {
+    const irregular = irregulars[lowerWord];
+    variations.push(irregular);
+    variations.push(irregular.charAt(0).toUpperCase() + irregular.slice(1));
+  }
+
+  // Add capitalized versions of all variations
+  variations.forEach(variation => {
+    if (variation !== variation.charAt(0).toUpperCase() + variation.slice(1)) {
+      variations.push(variation.charAt(0).toUpperCase() + variation.slice(1));
+    }
+  });
+
+  // Remove duplicates and return
+  return [...new Set(variations)];
 };
 
 const LingvistFlashcard = () => {
@@ -76,7 +121,7 @@ const LingvistFlashcard = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [flashcardData, setFlashcardData] = useState([]);
-  const [wordProgress, setWordProgress] = useState(0); // Her kelime için 0-3 arası ilerleme
+
   const inputRef = useRef(null);
 
   // Bileşen yüklendiğinde ilerlemeyi sıfırla
@@ -95,12 +140,12 @@ const LingvistFlashcard = () => {
   }, [currentCardIndex, showFeedback]);
 
   // Varsayılan veri - Her kelime için tekrar sayısı eklendi
-  const defaultData = [
+  const defaultData = useMemo(() => [
     {
-      sentence: "I went to lunch with some of my",
+      sentence: "Friends are very important in life",
       missingWord: "friends",
-      translation: "Ben arkadaşlarımdan bazıları ile öğle yemeğine gittim.",
-      translationWithUnderline: "Ben <u>arkadaşlarımdan</u> bazıları ile öğle yemeğine gittim.",
+      translation: "Arkadaşlar hayatta çok önemlidir.",
+      translationWithUnderline: "<u>Arkadaşlar</u> hayatta çok önemlidir.",
       repeatCount: 0, // 0-2 arası, 3'te sonraki kelimeye geç
     },
     {
@@ -117,7 +162,7 @@ const LingvistFlashcard = () => {
       translationWithUnderline: "Biraz <u>market alışverişi</u> yapmamız gerekiyor.",
       repeatCount: 0,
     },
-  ];
+  ], []);
 
   // Component mount olduğunda localStorage'dan veri yükle
   useEffect(() => {
@@ -142,15 +187,9 @@ const LingvistFlashcard = () => {
     } else {
       setFlashcardData(defaultData);
     }
-  }, []);
+  }, [defaultData]);
 
-  // Mevcut kelimenin tekrar durumunu güncelle
-  useEffect(() => {
-    if (flashcardData.length > 0) {
-      const currentCard = flashcardData[currentCardIndex];
-      setWordProgress(currentCard?.repeatCount || 0);
-    }
-  }, [flashcardData, currentCardIndex]);
+
 
   const cardData = useMemo(() => {
     const currentCard = flashcardData.length > 0 ? flashcardData[currentCardIndex] : {};
@@ -164,8 +203,31 @@ const LingvistFlashcard = () => {
       let sentenceToProcess = currentCard.sentence;
       const missingWord = currentCard.missingWord;
 
-      if (missingWord && sentenceToProcess.includes(missingWord)) {
-        sentenceToProcess = sentenceToProcess.replace(missingWord, '___');
+      if (missingWord) {
+        // Gelişmiş kelime eşleştirme - tekil/çoğul varyasyonları da dahil
+        const escapedWord = missingWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // Önce exact match dene
+        let wordRegex = new RegExp(`\\b${escapedWord}\\b`, 'gi');
+
+        if (wordRegex.test(sentenceToProcess)) {
+          sentenceToProcess = sentenceToProcess.replace(wordRegex, '___');
+        } else {
+          // Exact match bulunamazsa, varyasyonları dene
+          const variations = generateWordVariations(missingWord);
+          console.log(`"${missingWord}" için üretilen varyasyonlar:`, variations);
+
+          for (const variation of variations) {
+            const escapedVariation = variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const variationRegex = new RegExp(`\\b${escapedVariation}\\b`, 'gi');
+
+            if (variationRegex.test(sentenceToProcess)) {
+              console.log(`Eşleşme bulundu: "${variation}" kelimesi "${sentenceToProcess}" içinde bulundu`);
+              sentenceToProcess = sentenceToProcess.replace(variationRegex, '___');
+              break;
+            }
+          }
+        }
       }
 
       let parts;
@@ -195,7 +257,6 @@ const LingvistFlashcard = () => {
   }, [flashcardData, currentCardIndex, currentProgress, targetGoal]);
 
   const [feedbackColor, setFeedbackColor] = useState('default');
-  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
 
   const handleInputChange = (event) => {
     setUserInput(event.target.value);
@@ -207,42 +268,82 @@ const LingvistFlashcard = () => {
     }
   };
 
-  // Küresel klavye kısayolları
-  useEffect(() => {
-    const handleGlobalKeyPress = (event) => {
-      if (document.activeElement !== inputRef.current) {
-        switch (event.key.toLowerCase()) {
-          case 'escape':
-            if (userInput) {
-              setUserInput('');
-              event.preventDefault();
-            }
-            break;
-          case 'tab':
-            handleShowAnswer();
-            event.preventDefault();
-            break;
-          case ' ':
-            if (showFeedback && isCorrect) {
-              handleNextQuestion();
-              event.preventDefault();
-            }
-            break;
+  // useCallback fonksiyonlarını useEffect'ten önce tanımla
+  const handleNextQuestion = useCallback(() => {
+    // // Mevcut kelimenin tekrar sayısını artır
+    // const updatedData = flashcardData.map((card, index) => {
+    //   if (index === currentCardIndex) {
+    //     const newRepeatCount = card.repeatCount + 1;
+    //     return { ...card, repeatCount: newRepeatCount };
+    //   }
+    //   return card;
+    // });
 
+    // setFlashcardData(updatedData);
+    // localStorage.setItem('flashcardData', JSON.stringify(updatedData));
+
+    // // Eğer kelime 5 kez tekrarlandıysa sonraki kelimeye geç
+    // const currentCard = flashcardData[currentCardIndex];
+    // if (currentCard.repeatCount >= 4) { // 0,1,2,3,4 = 5 tekrar
+    //   setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
+    //   incrementProgress();
+    // }
+
+    // Her seferinde sonraki karta geç
+    setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
+    incrementProgress();
+
+    setUserInput('');
+    setIsCorrect(null);
+    setShowFeedback(false);
+  }, [flashcardData.length, incrementProgress]);
+
+  const handleShowAnswer = useCallback(() => {
+    setUserInput(cardData.missingWord);
+    setShowFeedback(true);
+    setFeedbackColor('info');
+    if(inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [cardData.missingWord]);
+
+  // Klavye kısayolları
+  useEffect(() => {
+    const handleKeyPress = (event) => {
+      // ESC - Input temizleme (her zaman çalışır)
+      if (event.key === 'Escape') {
+        if (userInput) {
+          setUserInput('');
+          event.preventDefault();
+        }
+        return;
+      }
+
+      // TAB - Cevabı göster (sadece feedback gösterilmiyorsa)
+      if (event.key === 'Tab' && !showFeedback) {
+        handleShowAnswer();
+        event.preventDefault();
+        return;
+      }
+
+      // Input alanına odaklanmış değilse diğer kısayolları kontrol et
+      if (document.activeElement !== inputRef.current) {
+        // Input alanına otomatik odaklan
+        if (inputRef.current && !showFeedback) {
+          inputRef.current.focus();
         }
       }
     };
 
-    document.addEventListener('keydown', handleGlobalKeyPress);
-    return () => document.removeEventListener('keydown', handleGlobalKeyPress);
-  }, [userInput, showFeedback, isCorrect]);
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
+  }, [userInput, showFeedback, handleShowAnswer]);
 
   const checkAnswer = () => {
     const userAnswer = userInput.toLowerCase().trim();
     const correctAnswer = cardData.missingWord.toLowerCase();
 
     setShowFeedback(true);
-    setIsAnswerRevealed(false);
 
     if (userAnswer === correctAnswer) {
       setIsCorrect(true);
@@ -266,7 +367,6 @@ const LingvistFlashcard = () => {
         setFeedbackColor('error');
         // Yanlış cevap için doğru cevabı göster ve 2 saniye sonra sonraki karta geç
         setUserInput(cardData.missingWord);
-        setIsAnswerRevealed(true);
         setTimeout(() => {
           handleNextQuestion();
         }, 2000);
@@ -274,45 +374,7 @@ const LingvistFlashcard = () => {
     }
   };
 
-  const handleNextQuestion = () => {
-    // Mevcut kelimenin tekrar sayısını artır
-    const updatedData = flashcardData.map((card, index) => {
-      if (index === currentCardIndex) {
-        const newRepeatCount = card.repeatCount + 1;
-        return { ...card, repeatCount: newRepeatCount };
-      }
-      return card;
-    });
-    
-    setFlashcardData(updatedData);
-    localStorage.setItem('flashcardData', JSON.stringify(updatedData));
-    
-    // Eğer kelime 5 kez tekrarlandıysa sonraki kelimeye geç
-    const currentCard = flashcardData[currentCardIndex];
-    if (currentCard.repeatCount >= 4) { // 0,1,2,3,4 = 5 tekrar
-      setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
-      incrementProgress();
-    }
-    
-    setUserInput('');
-    setIsCorrect(null);
-    setShowFeedback(false);
-  };
 
-
-
-  const handleShowAnswer = () => {
-    setUserInput(cardData.missingWord);
-    setShowFeedback(true);
-    setFeedbackColor('info');
-    if(inputRef.current) {
-      inputRef.current.focus();
-    }
-  };
-
-  const playAudio = () => {
-    console.log('Playing audio...');
-  };
 
   if (currentProgress >= targetGoal) {
     return (
@@ -352,6 +414,7 @@ const LingvistFlashcard = () => {
         }}
       >
         {/* Kelime Tekrar Progress'i - Üst Orta */}
+        {/*
         <Box sx={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             {[0, 1, 2, 3, 4].map(step => (
@@ -370,6 +433,7 @@ const LingvistFlashcard = () => {
             ))}
           </Box>
         </Box>
+        */}
 
         {/* İngilizce Cümle */}
         <Box sx={{ textAlign: 'center', mb: 4, pb: 3, mt: 3 }}>
@@ -536,37 +600,6 @@ const LingvistFlashcard = () => {
       </Box>
 
 
-      {/* Klavye Yardım Paneli */}
-      <Box 
-        sx={{ 
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-          backgroundColor: 'background.paper',
-          borderRadius: 2,
-          p: 2,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 200,
-          fontSize: '0.75rem',
-          zIndex: 1000
-        }}
-      >
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1, fontWeight: 'bold' }}>
-          Klavye Kısayolları:
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-          Enter: Kontrol Et
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-          Tab: Cevabı Göster
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-          Esc: Temizle
-        </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-          Space: Sonraki (doğru ise)
-        </Typography>
-      </Box>
     </Box>
   );
 };
