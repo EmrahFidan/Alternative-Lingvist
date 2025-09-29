@@ -19,6 +19,7 @@ import {
   Storage as StorageIcon,
   Add as AddIcon,
   Menu as MenuIcon,
+  SportsEsports as GameIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -33,6 +34,11 @@ const MinimalSideNav = ({ open, onToggle }) => {
       text: 'Pratik',
       icon: <PlayArrowIcon />,
       path: '/',
+    },
+    {
+      text: 'Game',
+      icon: <GameIcon />,
+      path: '/game',
     },
     {
       text: 'Veri Ekle',

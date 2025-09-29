@@ -3,9 +3,10 @@ import { Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import LingvistFlashcard from './components/LingvistFlashcard';
 import MinimalSideNav from './components/MinimalSideNav';
-import AddDataPage from './components/AddDataPage';
-import ManageDataPage from './components/ManageDataPage';
-import SettingsPage from './components/SettingsPage';
+import AddDataPage from './pages/AddDataPage';
+import ManageDataPage from './pages/ManageDataPage';
+import SettingsPage from './pages/SettingsPage';
+import GamePage from './pages/GamePage';
 import { Box, IconButton } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 
@@ -59,6 +60,7 @@ function App() {
       >
         <Routes>
           <Route path="/" element={<LingvistFlashcard />} />
+          <Route path="/game" element={<GamePage />} />
           <Route path="/add-data" element={<AddDataPage />} />
           <Route path="/manage-data" element={<ManageDataPage />} />
           <Route path="/settings" element={<SettingsPage />} />

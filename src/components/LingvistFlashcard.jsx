@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Levenshtein from 'fast-levenshtein';
 import CompletionScreen from './CompletionScreen';
-import useSettingsStore from '../store/useSettingsStore';
+import useSettingsStore from '../stores/useSettingsStore';
 import {
   Box,
   Typography,
@@ -123,11 +123,81 @@ const LingvistFlashcard = () => {
   const [flashcardData, setFlashcardData] = useState([]);
 
   const inputRef = useRef(null);
+  const textRef = useRef(null);
+  const [dynamicFontSize, setDynamicFontSize] = useState({ xs: '1.8rem', sm: '2rem', md: '2.2rem' });
 
   // Bileşen yüklendiğinde ilerlemeyi sıfırla
   useEffect(() => {
     resetProgress();
   }, [resetProgress]);
+
+  // Text overflow kontrolü ve dinamik font size ayarlama
+  useEffect(() => {
+    const checkTextOverflow = () => {
+      const currentCard = flashcardData[currentCardIndex];
+      if (textRef.current && currentCard?.translationWithUnderline) {
+        const container = textRef.current.parentElement;
+        const containerWidth = container.offsetWidth - 16; // minimum padding
+
+        // Plain text çıkar (HTML tagları olmadan)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = currentCard.translationWithUnderline;
+        const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+        // Çok daha büyük fontlarla test et
+        const fontSizes = [
+          { size: '2.2rem', xs: '1.8rem', sm: '2rem', md: '2.2rem' },
+          { size: '2rem', xs: '1.6rem', sm: '1.8rem', md: '2rem' },
+          { size: '1.8rem', xs: '1.4rem', sm: '1.6rem', md: '1.8rem' },
+          { size: '1.6rem', xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+          { size: '1.4rem', xs: '1rem', sm: '1.2rem', md: '1.4rem' },
+          { size: '1.2rem', xs: '0.9rem', sm: '1rem', md: '1.2rem' },
+          { size: '1rem', xs: '0.8rem', sm: '0.9rem', md: '1rem' },
+        ];
+
+        for (let i = 0; i < fontSizes.length; i++) {
+          const testElement = document.createElement('div');
+          testElement.style.position = 'absolute';
+          testElement.style.visibility = 'hidden';
+          testElement.style.whiteSpace = 'nowrap';
+          testElement.style.fontSize = fontSizes[i].size;
+          testElement.style.fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          testElement.textContent = plainText;
+          document.body.appendChild(testElement);
+
+          const textWidth = testElement.offsetWidth;
+          document.body.removeChild(testElement);
+
+          if (textWidth <= containerWidth) {
+            setDynamicFontSize({
+              xs: fontSizes[i].xs,
+              sm: fontSizes[i].sm,
+              md: fontSizes[i].md
+            });
+            return;
+          }
+        }
+
+        // Eğer hiçbiri uymuyorsa minimum boyutu kullan
+        setDynamicFontSize({
+          xs: '0.9rem',
+          sm: '1rem',
+          md: '1.1rem'
+        });
+      }
+    };
+
+    // Delay ekle - DOM render'ı bekle
+    const timeoutId = setTimeout(checkTextOverflow, 100);
+
+    // Window resize'da kontrol et
+    window.addEventListener('resize', checkTextOverflow);
+
+    return () => {
+      clearTimeout(timeoutId);
+      window.removeEventListener('resize', checkTextOverflow);
+    };
+  }, [flashcardData, currentCardIndex]);
 
   // Her yeni kart yüklendiğinde input alanına odaklan
   useEffect(() => {
@@ -289,13 +359,24 @@ const LingvistFlashcard = () => {
     //   incrementProgress();
     // }
 
-    // Her seferinde sonraki karta geç
-    setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
-    incrementProgress();
-
+    // State'leri önce temizle
     setUserInput('');
     setIsCorrect(null);
     setShowFeedback(false);
+    setFeedbackColor('default');
+
+    // Kısa gecikme ile sonraki karta geç (UI update için)
+    setTimeout(() => {
+      setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
+      incrementProgress();
+
+      // Input focus'u restore et
+      setTimeout(() => {
+        if(inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
+    }, 200);
   }, [flashcardData.length, incrementProgress]);
 
   const handleShowAnswer = useCallback(() => {
@@ -398,7 +479,7 @@ const LingvistFlashcard = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 4,
+        p: { xs: 1, sm: 2, md: 3 },
       }}
     >
       {/* Ana Container - Tüm içerik tek alanda */}
@@ -406,11 +487,15 @@ const LingvistFlashcard = () => {
         sx={{
           backgroundColor: 'background.paper',
           borderRadius: 3,
-          p: 4,
+          p: { xs: 2, sm: 3, md: 4 },
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 900,
+          maxWidth: { xs: '95vw', sm: '90vw', md: 1200 },
           width: '100%',
           position: 'relative',
+          minHeight: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
         }}
       >
         {/* Kelime Tekrar Progress'i - Üst Orta */}
@@ -436,15 +521,34 @@ const LingvistFlashcard = () => {
         */}
 
         {/* İngilizce Cümle */}
-        <Box sx={{ textAlign: 'center', mb: 4, pb: 3, mt: 3 }}>
+        <Box
+          sx={{
+            textAlign: 'center',
+            mb: 4,
+            pb: 3,
+            mt: 3,
+            px: { xs: 1, sm: 2, md: 3 },
+            width: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 100,
+          }}
+        >
           <Typography
             variant="h5"
             sx={{
               color: 'primary.main',
               fontWeight: 400,
-              fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
-              lineHeight: 1.4,
-              mb: 3,
+              fontSize: { xs: '1.6rem', sm: '1.8rem', md: '2rem' },
+              lineHeight: 1.5,
+              mb: 2,
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              maxWidth: '100%',
+              margin: '0 auto',
+              textAlign: 'center',
             }}
           >
             {cardData.sentenceStart}
@@ -474,7 +578,7 @@ const LingvistFlashcard = () => {
                               : 'primary.main'
                       : 'primary.main',
                     fontWeight: 500,
-                    fontSize: '0.9em',
+                    fontSize: '1em',
                     borderBottom: '2px solid rgba(255, 255, 255, 0.7)',
                     paddingBottom: '2px',
                     lineHeight: 'inherit',
@@ -512,23 +616,69 @@ const LingvistFlashcard = () => {
         <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)', mb: 4 }} />
 
         {/* Türkçe Çeviri */}
-        <Typography
-          variant="body1"
+        <Box
           sx={{
-            color: 'text.secondary',
-            textAlign: 'center',
-            fontSize: '1rem',
-            lineHeight: 1.6,
             mb: 4,
             pb: 3,
-            '& u': {
-              textDecoration: 'none',
-              color: 'primary.main',
-              fontWeight: 'medium',
-            },
+            px: { xs: 0.5, sm: 1, md: 1 },
+            width: '100%',
+            boxSizing: 'border-box',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 140,
           }}
-          dangerouslySetInnerHTML={{ __html: cardData.translationWithUnderline }}
-        />
+        >
+          <Typography
+            ref={textRef}
+            variant="body1"
+            sx={{
+              color: 'text.secondary',
+              textAlign: 'center',
+              fontSize: dynamicFontSize,
+              lineHeight: 1.4,
+              wordBreak: 'break-word',
+              whiteSpace: 'normal',
+              overflow: 'visible',
+              width: '100%',
+              margin: '0',
+              padding: '0 8px',
+            }}
+          >
+            {(() => {
+              if (!cardData.translationWithUnderline) return '';
+
+              // HTML'i parse et
+              const htmlString = cardData.translationWithUnderline;
+              const parts = htmlString.split(/<u>|<\/u>/);
+
+              return parts.map((part, index) => {
+                if (index % 2 === 1) {
+                  // Bu kısım <u> tagları arasında
+                  return (
+                    <Box
+                      key={index}
+                      component="span"
+                      sx={{
+                        color: 'primary.main',
+                        fontWeight: 'medium',
+                        textDecoration: 'none',
+                        whiteSpace: 'nowrap',
+                        display: 'inline-block',
+                        margin: '0 1px',
+                      }}
+                    >
+                      {part}
+                    </Box>
+                  );
+                } else {
+                  // Normal text
+                  return part;
+                }
+              });
+            })()}
+          </Typography>
+        </Box>
         
         {/* Divider Line */}
         <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.1)', mb: 4 }} />
