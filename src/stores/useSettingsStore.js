@@ -7,7 +7,7 @@ const useSettingsStore = create(
     (set, get) => ({
       targetGoal: APP_CONFIG.DEFAULT_TARGET_GOAL,
       currentProgress: 0,
-      theme: 'light',
+      theme: 'default', // default, midnight, ocean, forest, purple
       language: 'en',
       soundEnabled: true,
       animationsEnabled: true,

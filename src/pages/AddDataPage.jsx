@@ -16,6 +16,7 @@ import {
   TableRow,
   IconButton,
   Chip,
+  Snackbar,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -158,6 +159,8 @@ const AddDataPage = () => {
   const [cleaningStats, setCleaningStats] = useState(null);
   const [dataType, setDataType] = useState('practice'); // 'practice' or 'game'
   const fileInputRef = useRef(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
 
   // Dosya yükleme işlemi - Otomatik Temizleme Pipeline
@@ -255,7 +258,8 @@ const AddDataPage = () => {
         },
       });
     } else {
-      alert('Lütfen geçerli bir CSV dosyası seçin.');
+      setSnackbarMessage('Lütfen geçerli bir CSV dosyası seçin.');
+      setSnackbarOpen(true);
     }
   };
 
@@ -307,7 +311,8 @@ const AddDataPage = () => {
     });
 
     const dataTypeName = dataType === 'game' ? 'Game' : 'Practice';
-    alert(`✨ ${csvData.length} adet ${dataTypeName} verisi başarıyla eklendi!\n\n🤖 Otomatik işlemler:\n• Pipe sembolleri temizlendi\n• Kelime eşleştirme optimize edildi\n• Büyük/küçük harf düzeltildi\n• Boundary sorunları çözüldü`);
+    setSnackbarMessage(`✨ ${csvData.length} adet ${dataTypeName} verisi başarıyla eklendi!`);
+    setSnackbarOpen(true);
 
     // Form'u temizle
     setCsvData([]);
@@ -349,7 +354,7 @@ const AddDataPage = () => {
             sx={{
               backgroundColor: dataType === 'practice' ? 'primary.main' : 'transparent',
               borderColor: 'primary.main',
-              color: dataType === 'practice' ? 'white' : 'primary.main',
+              color: dataType === 'practice' ? '#ccc9dc' : 'primary.main',
               '&:hover': {
                 backgroundColor: dataType === 'practice' ? 'primary.dark' : 'rgba(96, 165, 250, 0.1)',
               },
@@ -363,7 +368,7 @@ const AddDataPage = () => {
             sx={{
               backgroundColor: dataType === 'game' ? 'secondary.main' : 'transparent',
               borderColor: 'secondary.main',
-              color: dataType === 'game' ? 'white' : 'secondary.main',
+              color: dataType === 'game' ? '#ccc9dc' : 'secondary.main',
               '&:hover': {
                 backgroundColor: dataType === 'game' ? 'secondary.dark' : 'rgba(255, 183, 77, 0.1)',
               },
@@ -603,6 +608,31 @@ const AddDataPage = () => {
           </Paper>
         </Box>
       )}
+
+      {/* Snackbar Bildirimi */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{
+          '& .MuiSnackbar-root': {
+            top: '24px',
+            right: '24px',
+          }
+        }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          sx={{
+            width: '100%',
+            boxShadow: 3,
+          }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

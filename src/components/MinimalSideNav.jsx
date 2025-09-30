@@ -74,10 +74,10 @@ const MinimalSideNav = ({ open, onToggle }) => {
         keepMounted: true, // Better open performance on mobile.
       }}
       sx={{
-        width: 240,
+        width: 280,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: 240,
+          width: 280,
           boxSizing: 'border-box',
           backgroundColor: 'background.paper',
           borderRight: '1px solid rgba(255, 255, 255, 0.1)',
@@ -95,23 +95,25 @@ const MinimalSideNav = ({ open, onToggle }) => {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            color: 'primary.main', 
-            fontWeight: 'bold',
-            textAlign: 'center'
-          }}
-        >
-          Alternative
-          <br />
-          <Typography component="span" variant="h6" sx={{ color: 'secondary.main' }}>
-            Lingvist
+        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 'bold',
+              textAlign: 'center'
+            }}
+          >
+            Alternative
+            <br />
+            <Typography component="span" variant="h6" sx={{ color: 'secondary.main' }}>
+              Lingvist
+            </Typography>
           </Typography>
-        </Typography>
+        </Box>
         <IconButton
           onClick={onToggle}
-          sx={{ 
+          sx={{
             color: 'text.secondary',
             '&:hover': {
               backgroundColor: 'rgba(255, 255, 255, 0.1)',

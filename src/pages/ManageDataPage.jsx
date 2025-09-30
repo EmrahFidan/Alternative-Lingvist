@@ -13,8 +13,6 @@ import {
   Button,
   Checkbox,
   Tooltip,
-  TextField,
-  InputAdornment,
   Chip,
   TablePagination,
   Tabs,
@@ -22,8 +20,8 @@ import {
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
-  Search as SearchIcon,
-  Clear as ClearIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
 } from '@mui/icons-material';
 
 const ManageDataPage = () => {
@@ -31,10 +29,10 @@ const ManageDataPage = () => {
   const [gameFlashcards, setGameFlashcards] = useState([]);
   const [selected, setSelected] = useState([]);
   const [revealedIndex, setRevealedIndex] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [tabValue, setTabValue] = useState(0); // 0: Practice, 1: Game
+  const [progressFilter, setProgressFilter] = useState('all'); // all, 0, 1, 2, 3, 4, 5
 
   useEffect(() => {
     // Practice data yükle
@@ -109,26 +107,43 @@ const ManageDataPage = () => {
     }
   };
 
-  // Filtrelenmiş veriler
-  const filteredFlashcards = useMemo(() => {
-    if (!searchTerm) return currentData;
-    
-    const lowercaseSearch = searchTerm.toLowerCase();
-    return currentData.filter(card => {
-      // Practice data format için
-      if (tabValue === 0) {
-        return card.sentence?.toLowerCase().includes(lowercaseSearch) ||
-               card.missingWord?.toLowerCase().includes(lowercaseSearch) ||
-               card.translation?.toLowerCase().includes(lowercaseSearch);
-      }
-      // Game data format için
-      else {
-        return card.sentence?.toLowerCase().includes(lowercaseSearch) ||
-               card.word?.toLowerCase().includes(lowercaseSearch) ||
-               card.word_mean?.toLowerCase().includes(lowercaseSearch);
+  // Progress istatistikleri hesapla (0-5 ayrı ayrı)
+  const getProgressStats = (data) => {
+    if (tabValue !== 0) return null; // Sadece practice data için
+
+    const stats = {
+      0: 0,
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0
+    };
+
+    data.forEach(card => {
+      const progress = card.sessionProgress || 0;
+      if (progress >= 0 && progress <= 5) {
+        stats[progress]++;
       }
     });
-  }, [currentData, searchTerm, tabValue]);
+
+    return stats;
+  };
+
+  // Filtrelenmiş veriler (progress filtresi)
+  const filteredFlashcards = useMemo(() => {
+    let filtered = currentData;
+
+    // Progress filter uygula (sadece practice data için)
+    if (tabValue === 0 && progressFilter !== 'all') {
+      filtered = filtered.filter(card => {
+        const progress = card.sessionProgress || 0;
+        return progress === parseInt(progressFilter);
+      });
+    }
+
+    return filtered;
+  }, [currentData, tabValue, progressFilter]);
 
   // Sayfalama için veriler
   const paginatedFlashcards = useMemo(() => {
@@ -147,20 +162,15 @@ const ManageDataPage = () => {
     setPage(0);
   };
 
-  const handleSearchChange = (event) => {
-    setSearchTerm(event.target.value);
-    setPage(0); // Arama yapıldığında ilk sayfaya dön
-  };
-
-  const clearSearch = () => {
-    setSearchTerm('');
-    setPage(0);
-  };
-
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setSelected([]);
-    setSearchTerm('');
+    setProgressFilter('all');
+    setPage(0);
+  };
+
+  const handleProgressFilterChange = (filter) => {
+    setProgressFilter(filter);
     setPage(0);
   };
 
@@ -193,34 +203,86 @@ const ManageDataPage = () => {
 
       {/* Başlık ve İstatistikler */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <Box>
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        {/* Filtre Chip'leri - Ortalanmış */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Chip
+              label={`Toplam: ${currentData.length}`}
+              color="primary"
+              variant={progressFilter === 'all' ? 'filled' : 'outlined'}
+              size="medium"
+              onClick={() => handleProgressFilterChange('all')}
+              sx={{
+                fontWeight: 'bold',
+                minWidth: 85,
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'scale(1.05)',
+                  transition: 'transform 0.2s'
+                }
+              }}
+            />
+            {tabValue === 0 && (() => {
+              const stats = getProgressStats(currentData);
+              const getStarDisplay = (level) => {
+                return '⭐'.repeat(level) + (level < 5 ? '☆'.repeat(5 - level) : '');
+              };
+              return stats ? (
+                <>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', mx: 0.5 }}>
+                    Progress:
+                  </Typography>
+                  {[0, 1, 2, 3, 4, 5].map(level => (
+                    <Chip
+                      key={level}
+                      icon={
+                        <Box sx={{ display: 'flex', alignItems: 'center', fontSize: '14px', ml: 0.5 }}>
+                          {level === 0 ? '☆☆☆☆☆' : getStarDisplay(level)}
+                        </Box>
+                      }
+                      label={stats[level]}
+                      color={
+                        level === 5 ? 'success' :
+                        level >= 3 ? 'warning' :
+                        level === 0 ? 'default' :
+                        'error'
+                      }
+                      variant={progressFilter === String(level) ? 'filled' : 'outlined'}
+                      size="medium"
+                      onClick={() => handleProgressFilterChange(progressFilter === String(level) ? 'all' : String(level))}
+                      sx={{
+                        cursor: 'pointer',
+                        minWidth: 85,
+                        fontWeight: 'bold',
+                        '&:hover': {
+                          transform: 'scale(1.05)',
+                          transition: 'transform 0.2s'
+                        },
+                        '& .MuiChip-icon': {
+                          marginLeft: '8px',
+                          marginRight: '-4px'
+                        }
+                      }}
+                    />
+                  ))}
+                </>
+              ) : null;
+            })()}
+            {selected.length > 0 && (
               <Chip
-                label={`Toplam: ${currentData.length}`}
-                color="primary"
+                label={`Seçili: ${selected.length}`}
+                color="warning"
                 variant="outlined"
-                size="small"
+                size="medium"
+                sx={{ fontWeight: 'bold' }}
               />
-              {searchTerm && (
-                <Chip
-                  label={`Filtrelenen: ${filteredFlashcards.length}`}
-                  color="secondary" 
-                  variant="outlined" 
-                  size="small"
-                />
-              )}
-              {selected.length > 0 && (
-                <Chip 
-                  label={`Seçili: ${selected.length}`} 
-                  color="warning" 
-                  variant="outlined" 
-                  size="small"
-                />
-              )}
-            </Box>
+            )}
           </Box>
-          {selected.length > 0 && (
+        </Box>
+
+        {/* Silme Butonu */}
+        {selected.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Tooltip title="Seçili olan tüm verileri kalıcı olarak sil.">
               <Button
                 variant="contained"
@@ -231,41 +293,8 @@ const ManageDataPage = () => {
                 {selected.length} Öğeyi Sil
               </Button>
             </Tooltip>
-          )}
-        </Box>
-
-        {/* Arama Çubuğu */}
-        <TextField
-          fullWidth
-          placeholder="Cümle, kelime veya çeviride ara..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm && (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={clearSearch}
-                  edge="end"
-                  size="small"
-                  sx={{ color: 'text.secondary' }}
-                >
-                  <ClearIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            maxWidth: 400,
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-            },
-          }}
-        />
+          </Box>
+        )}
       </Box>
 
       <TableContainer component={Paper} sx={{ backgroundColor: 'background.paper', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
@@ -279,6 +308,11 @@ const ManageDataPage = () => {
               <TableCell sx={{ color: 'text.primary', fontWeight: 'bold' }}>
                 {tabValue === 0 ? 'Türkçe Çeviri' : 'Kelime Anlamı'}
               </TableCell>
+              {tabValue === 0 && (
+                <TableCell sx={{ color: 'text.primary', fontWeight: 'bold', textAlign: 'center' }}>
+                  Progress
+                </TableCell>
+              )}
               <TableCell padding="checkbox" align="right">
                 <Checkbox
                   color="primary"
@@ -296,6 +330,12 @@ const ManageDataPage = () => {
               const isItemSelected = isSelected(globalIndex);
               const labelId = `enhanced-table-checkbox-${globalIndex}`;
 
+              // Progress hesapla
+              const masteryLevel = card.masteryLevel || 0;
+
+              // Session progress kullan
+              const sessionProgress = card.sessionProgress || 0;
+
               return (
                 <TableRow
                   hover
@@ -308,22 +348,11 @@ const ManageDataPage = () => {
                   sx={{ cursor: 'pointer' }}
                 >
                   <TableCell sx={{ color: 'text.secondary' }}>
-                    {searchTerm ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: card.sentence?.replace(
-                            new RegExp(`(${searchTerm})`, 'gi'),
-                            '<mark style="background: rgba(59, 130, 246, 0.3); padding: 2px 4px; border-radius: 4px;">$1</mark>'
-                          )
-                        }}
-                      />
-                    ) : (
-                      card.sentence
-                    )}
+                    {card.sentence}
                   </TableCell>
-                  <TableCell 
-                    sx={{ 
-                      color: 'primary.main', 
+                  <TableCell
+                    sx={{
+                      color: 'primary.main',
                       fontWeight: 'bold',
                       filter: revealedIndex === globalIndex ? 'none' : 'blur(5px)',
                       transition: 'filter 0.2s ease-in-out',
@@ -332,33 +361,49 @@ const ManageDataPage = () => {
                     onMouseEnter={() => setRevealedIndex(globalIndex)}
                     onMouseLeave={() => setRevealedIndex(null)}
                   >
-                    {searchTerm ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: (tabValue === 0 ? card.missingWord : card.word)?.replace(
-                            new RegExp(`(${searchTerm})`, 'gi'),
-                            '<mark style="background: rgba(59, 130, 246, 0.3); padding: 2px 4px; border-radius: 4px;">$1</mark>'
-                          )
-                        }}
-                      />
-                    ) : (
-                      tabValue === 0 ? card.missingWord : card.word
-                    )}
+                    {tabValue === 0 ? card.missingWord : card.word}
                   </TableCell>
                   <TableCell sx={{ color: 'text.secondary' }}>
-                    {searchTerm ? (
-                      <span
-                        dangerouslySetInnerHTML={{
-                          __html: (tabValue === 0 ? card.translation : card.word_mean)?.replace(
-                            new RegExp(`(${searchTerm})`, 'gi'),
-                            '<mark style="background: rgba(59, 130, 246, 0.3); padding: 2px 4px; border-radius: 4px;">$1</mark>'
-                          )
-                        }}
-                      />
-                    ) : (
-                      tabValue === 0 ? card.translation : card.word_mean
-                    )}
+                    {tabValue === 0 ? card.translation : card.word_mean}
                   </TableCell>
+                  {tabValue === 0 && (
+                    <TableCell sx={{ textAlign: 'center', py: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Box
+                            key={star}
+                            sx={{
+                              width: 16,
+                              height: 16,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {star <= sessionProgress ? (
+                              <StarIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: sessionProgress >= 5
+                                    ? 'success.main'
+                                    : sessionProgress >= 3
+                                      ? 'warning.main'
+                                      : 'error.main'
+                                }}
+                              />
+                            ) : (
+                              <StarBorderIcon
+                                sx={{
+                                  fontSize: 16,
+                                  color: 'rgba(255, 255, 255, 0.3)'
+                                }}
+                              />
+                            )}
+                          </Box>
+                        ))}
+                      </Box>
+                    </TableCell>
+                  )}
                   <TableCell padding="checkbox" align="right">
                     <Checkbox
                       color="primary"
@@ -371,14 +416,14 @@ const ManageDataPage = () => {
             })}
             {filteredFlashcards.length === 0 && flashcards.length > 0 && (
               <TableRow>
-                <TableCell colSpan={4} sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic', p: 4 }}>
+                <TableCell colSpan={tabValue === 0 ? 5 : 4} sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic', p: 4 }}>
                   Arama kriterinize uygun veri bulunamadı. Farklı terimlerle arama yapın.
                 </TableCell>
               </TableRow>
             )}
             {flashcards.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic', p: 4 }}>
+                <TableCell colSpan={tabValue === 0 ? 5 : 4} sx={{ textAlign: 'center', color: 'text.secondary', fontStyle: 'italic', p: 4 }}>
                   Görüntülenecek veri bulunamadı. Lütfen 'Veri Ekleme' sayfasından CSV dosyası yükleyin.
                 </TableCell>
               </TableRow>

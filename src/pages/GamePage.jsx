@@ -104,9 +104,9 @@ const GamePage = () => {
     let cleanSentence = sentence.trim();
     const cleanWord = word.trim();
 
-    // Kelimeyi boş çizgilerle değiştir
+    // Kelimeyi kesikli çizgilerle değiştir (her harf için "_ " formatı)
     const wordLength = cleanWord.length;
-    const blank = '_'.repeat(wordLength);
+    const blank = '_ '.repeat(wordLength).trim(); // "_ _ _ _" formatında
 
     // Önce kelimeyi sentence içinde arayalım
     const escapedWord = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -146,14 +146,16 @@ const GamePage = () => {
         const container = textRef.current.parentElement;
         const containerWidth = container.offsetWidth - 32; // padding hesabı
 
-        // Farklı font boyutlarını test et
+        // Farklı font boyutlarını test et - Dengeli boyutlar
         const fontSizes = [
+          { size: '6rem', xs: '3.6rem', sm: '4.8rem', md: '6rem' },
+          { size: '5rem', xs: '3rem', sm: '4rem', md: '5rem' },
+          { size: '4.5rem', xs: '2.7rem', sm: '3.6rem', md: '4.5rem' },
+          { size: '4rem', xs: '2.4rem', sm: '3.2rem', md: '4rem' },
+          { size: '3.5rem', xs: '2.1rem', sm: '2.8rem', md: '3.5rem' },
+          { size: '3rem', xs: '1.8rem', sm: '2.4rem', md: '3rem' },
           { size: '2.5rem', xs: '1.5rem', sm: '2rem', md: '2.5rem' },
           { size: '2rem', xs: '1.2rem', sm: '1.6rem', md: '2rem' },
-          { size: '1.5rem', xs: '1rem', sm: '1.3rem', md: '1.5rem' },
-          { size: '1.2rem', xs: '0.9rem', sm: '1.1rem', md: '1.2rem' },
-          { size: '1rem', xs: '0.8rem', sm: '0.9rem', md: '1rem' },
-          { size: '0.85rem', xs: '0.7rem', sm: '0.8rem', md: '0.85rem' },
         ];
 
         for (let i = 0; i < fontSizes.length; i++) {
@@ -182,9 +184,9 @@ const GamePage = () => {
 
         // Eğer hiçbiri uymuyorsa en küçük boyutu kullan
         setDynamicFontSize({
-          xs: '0.6rem',
-          sm: '0.7rem',
-          md: '0.8rem'
+          xs: '1.2rem',
+          sm: '1.6rem',
+          md: '2rem'
         });
       }
     };
@@ -196,6 +198,9 @@ const GamePage = () => {
       clearTimeout(timeoutId);
     };
   }, [cleanTranslation]);
+
+  // Kelime listesi boş mu kontrol et
+  const hasNoCards = flashcardData.length === 0;
 
   return (
     <Box
@@ -209,25 +214,76 @@ const GamePage = () => {
         p: 4,
       }}
     >
-      {/* Ana Container */}
-      <Box
-        sx={{
-          backgroundColor: 'background.paper',
-          borderRadius: 3,
-          p: 4,
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          maxWidth: 600,
-          width: '100%',
-          position: 'relative',
-        }}
-      >
+      {hasNoCards ? (
+        // Tebrik Mesajı - Kelimeler Bitti
+        <Box
+          sx={{
+            backgroundColor: 'background.paper',
+            borderRadius: 3,
+            p: 6,
+            border: '1px solid rgba(96, 165, 250, 0.3)',
+            maxWidth: 600,
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 8px 25px rgba(96, 165, 250, 0.2)',
+          }}
+        >
+          <Typography
+            variant="h2"
+            sx={{
+              color: 'secondary.main',
+              fontWeight: 'bold',
+              mb: 3,
+              fontSize: { xs: '2rem', sm: '3rem', md: '4rem' }
+            }}
+          >
+            🎉 Tebrikler! 🎉
+          </Typography>
+          <Typography
+            variant="h5"
+            sx={{
+              color: 'text.primary',
+              mb: 2,
+              lineHeight: 1.6
+            }}
+          >
+            Bu kelime setini tamamladınız!
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: 'text.secondary',
+              mb: 4
+            }}
+          >
+            Yeni kelimeler eklemek için "Veri Ekle" sekmesini kullanabilirsiniz.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Typography variant="h6" sx={{ color: 'primary.main' }}>
+              📚 Toplam: {flashcardData.length} kelime
+            </Typography>
+          </Box>
+        </Box>
+      ) : (
+        // Ana Container - Normal Kart Görünümü
+        <Box
+          sx={{
+            backgroundColor: 'background.paper',
+            borderRadius: 3,
+            p: 4,
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            maxWidth: 900,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
 
         {/* Tek Kart */}
         <Fade key={currentCardIndex} in={true} timeout={300}>
           <Paper
             sx={{
               position: 'relative',
-              height: '400px',
+              height: '600px',
               width: '100%',
               cursor: 'pointer',
               transformStyle: 'preserve-3d',
@@ -236,7 +292,7 @@ const GamePage = () => {
               boxShadow: '0 8px 25px rgba(96, 165, 250, 0.2)',
             }}
           >
-            {/* Ön Yüz - Cümle üstte, word meaning altta */}
+            {/* Ön Yüz - Word meaning üstte, Cümle altta */}
             <Box
               sx={{
                 position: 'absolute',
@@ -254,39 +310,7 @@ const GamePage = () => {
                 overflow: 'hidden', // Kartın dışına çıkmayı engelle
               }}
             >
-              {/* Cümle - Boş kelime ile (Üstte) */}
-              <Box
-                sx={{
-                  width: '100%',
-                  maxHeight: '40%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  mb: 3
-                }}
-              >
-                <Typography
-                  variant="h5"
-                  sx={{
-                    color: 'text.primary',
-                    textAlign: 'center',
-                    lineHeight: 1.4,
-                    fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' },
-                    fontFamily: 'monospace',
-                    wordBreak: 'break-word',
-                    hyphens: 'auto',
-                    maxWidth: '100%',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {parsedSentence}
-                </Typography>
-              </Box>
-
-              {/* Divider */}
-              <Box sx={{ width: '70%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 3 }} />
-
-              {/* Word Meaning - Türkçe anlamı (Altta) */}
+              {/* Word Meaning - Türkçe anlamı (Üstte) */}
               <Box
                 sx={{
                   width: '100%',
@@ -294,6 +318,7 @@ const GamePage = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  mb: 3
                 }}
               >
                 <Typography
@@ -304,6 +329,7 @@ const GamePage = () => {
                     fontWeight: 'bold',
                     textAlign: 'center',
                     fontSize: dynamicFontSize,
+                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
                     lineHeight: 1.3,
                     wordBreak: 'break-word',
                     whiteSpace: 'normal',
@@ -314,6 +340,37 @@ const GamePage = () => {
                   }}
                 >
                   {cleanTranslation}
+                </Typography>
+              </Box>
+
+              {/* Divider */}
+              <Box sx={{ width: '70%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 3 }} />
+
+              {/* Cümle - Boş kelime ile (Altta) */}
+              <Box
+                sx={{
+                  width: '100%',
+                  maxHeight: '40%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  sx={{
+                    color: 'text.primary',
+                    textAlign: 'center',
+                    lineHeight: 1.4,
+                    fontSize: { xs: '1.33rem', sm: '1.6rem', md: '1.87rem' },
+                    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                    wordBreak: 'break-word',
+                    hyphens: 'auto',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {parsedSentence}
                 </Typography>
               </Box>
             </Box>
@@ -343,7 +400,8 @@ const GamePage = () => {
                   color: 'secondary.main',
                   fontWeight: 'bold',
                   textAlign: 'center',
-                  fontSize: { xs: '3rem', sm: '4rem', md: '5rem' }
+                  fontSize: { xs: '6rem', sm: '8rem', md: '10rem' },
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
                 }}
               >
                 {currentCard.word || currentCard.missingWord}
@@ -401,6 +459,7 @@ const GamePage = () => {
           />
         </Box>
       </Box>
+      )}
     </Box>
   );
 };

@@ -47,10 +47,10 @@ function App() {
       )}
       
       {/* Ana İçerik */}
-      <Box 
+      <Box
         component="main"
-        sx={{ 
-          ml: sideNavOpen ? '240px' : '0px',
+        sx={{
+          ml: sideNavOpen ? '280px' : '0px',
           transition: 'margin-left 0.3s ease',
           minHeight: '100vh',
           '@media (max-width: 768px)': {

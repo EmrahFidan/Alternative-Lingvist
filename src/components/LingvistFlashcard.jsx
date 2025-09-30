@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Levenshtein from 'fast-levenshtein';
 import CompletionScreen from './CompletionScreen';
 import useSettingsStore from '../stores/useSettingsStore';
+import { FSRSEngine, DataMigrationHelper } from '../utils/fsrs';
+import { WeightedSelectionEngine, SessionProgressManager } from '../utils/weightedSelection';
+import CSVHandler from '../utils/csvHandler';
 import {
   Box,
   Typography,
@@ -12,6 +15,8 @@ import {
   Paper,
   Fade,
   Button,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   VolumeUp as VolumeUpIcon,
@@ -116,11 +121,23 @@ const LingvistFlashcard = () => {
     navigate('/settings');
   };
 
+  // System Integration
+  const fsrsEngine = useMemo(() => new FSRSEngine(), []);
+  const sessionManager = useMemo(() => new SessionProgressManager(), []);
+  const weightedSelection = useMemo(() => new WeightedSelectionEngine(), []);
+  const csvHandler = useMemo(() => new CSVHandler(), []);
+
   const [userInput, setUserInput] = useState('');
   const [isCorrect, setIsCorrect] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [currentCard, setCurrentCard] = useState(null);
   const [flashcardData, setFlashcardData] = useState([]);
+  const [currentSessionProgress, setCurrentSessionProgress] = useState(0);
+
+  // CSV Menu States
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [alertInfo, setAlertInfo] = useState({ open: false, message: '', severity: 'info' });
+  const fileInputRef = useRef(null);
 
   const inputRef = useRef(null);
   const textRef = useRef(null);
@@ -134,7 +151,6 @@ const LingvistFlashcard = () => {
   // Text overflow kontrolü ve dinamik font size ayarlama
   useEffect(() => {
     const checkTextOverflow = () => {
-      const currentCard = flashcardData[currentCardIndex];
       if (textRef.current && currentCard?.translationWithUnderline) {
         const container = textRef.current.parentElement;
         const containerWidth = container.offsetWidth - 16; // minimum padding
@@ -197,7 +213,7 @@ const LingvistFlashcard = () => {
       clearTimeout(timeoutId);
       window.removeEventListener('resize', checkTextOverflow);
     };
-  }, [flashcardData, currentCardIndex]);
+  }, [currentCard]);
 
   // Her yeni kart yüklendiğinde input alanına odaklan
   useEffect(() => {
@@ -207,46 +223,68 @@ const LingvistFlashcard = () => {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [currentCardIndex, showFeedback]);
+  }, [currentCard, showFeedback]);
 
-  // Varsayılan veri - Her kelime için tekrar sayısı eklendi
+  // Varsayılan veri - Weighted Selection uyumlu format
   const defaultData = useMemo(() => [
     {
+      id: 'friends_001',
       sentence: "Friends are very important in life",
       missingWord: "friends",
       translation: "Arkadaşlar hayatta çok önemlidir.",
       translationWithUnderline: "<u>Arkadaşlar</u> hayatta çok önemlidir.",
-      repeatCount: 0, // 0-2 arası, 3'te sonraki kelimeye geç
+      repeatCount: 0, // Legacy
+      masteryLevel: 0, // 0-5 progress tracking
+      sessionProgress: 0,
+      sessionCompleted: false,
+      lastPracticed: null,
+      fsrs: fsrsEngine.createNewCard()
     },
     {
+      id: 'exam_002',
       sentence: "She is studying for her",
       missingWord: "exam",
       translation: "O sınavı için çalışıyor.",
       translationWithUnderline: "O <u>sınavı</u> için çalışıyor.",
       repeatCount: 0,
+      masteryLevel: 0,
+      sessionProgress: 0,
+      sessionCompleted: false,
+      lastPracticed: null,
+      fsrs: fsrsEngine.createNewCard()
     },
     {
+      id: 'groceries_003',
       sentence: "We need to buy some",
       missingWord: "groceries",
       translation: "Biraz market alışverişi yapmamız gerekiyor.",
       translationWithUnderline: "Biraz <u>market alışverişi</u> yapmamız gerekiyor.",
       repeatCount: 0,
+      masteryLevel: 0,
+      sessionProgress: 0,
+      sessionCompleted: false,
+      lastPracticed: null,
+      fsrs: fsrsEngine.createNewCard()
     },
-  ], []);
+  ], [fsrsEngine]);
 
-  // Component mount olduğunda localStorage'dan veri yükle
+  // Component mount olduğunda localStorage'dan veri yükle ve weighted format'a migrate et
   useEffect(() => {
     const savedData = localStorage.getItem('flashcardData');
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
         if (parsedData.length > 0) {
-          // Eski veriyi yeni format ile uyumlu hale getir
-          const updatedData = parsedData.map(card => ({
+          // Eski veriyi yeni format'a migrate et
+          const migratedData = parsedData.map((card, index) => ({
             ...card,
-            repeatCount: card.repeatCount || 0
+            id: card.id || `${card.missingWord}_${index}`,
+            masteryLevel: card.masteryLevel || 0,
+            lastPracticed: card.lastPracticed || null,
+            fsrs: card.fsrs || fsrsEngine.createNewCard()
           }));
-          setFlashcardData(updatedData);
+          setFlashcardData(migratedData);
+          localStorage.setItem('flashcardData', JSON.stringify(migratedData));
         } else {
           setFlashcardData(defaultData);
         }
@@ -257,12 +295,43 @@ const LingvistFlashcard = () => {
     } else {
       setFlashcardData(defaultData);
     }
-  }, [defaultData]);
+  }, [defaultData, fsrsEngine]);
 
+  // İlk kartı ve session progress'i seç
+  useEffect(() => {
+    if (flashcardData.length > 0 && !currentCard) {
+      // Debug: localStorage'daki veriyi kontrol et
+      console.log('=== FLASHCARD DATA ANALYSIS ===');
+      flashcardData.forEach(card => {
+        console.log(`${card.missingWord}: mastery=${card.masteryLevel || 0}, session=${card.sessionProgress || 0}`);
+      });
 
+      const nextCard = weightedSelection.getNextCard(flashcardData);
+      if (nextCard) {
+        setCurrentCard(nextCard);
+        setCurrentSessionProgress(nextCard.sessionProgress || 0);
+        console.log(`=== INITIAL CARD SELECTED ===`);
+        console.log(`Card: ${nextCard.missingWord}, mastery: ${nextCard.masteryLevel || 0}, session: ${nextCard.sessionProgress || 0}`);
+      }
+    }
+  }, [flashcardData, currentCard, weightedSelection]);
+
+  // Mevcut kartın session progress'ini takip et
+  useEffect(() => {
+    if (currentCard) {
+      setCurrentSessionProgress(currentCard.sessionProgress || 0);
+    }
+  }, [currentCard]);
 
   const cardData = useMemo(() => {
-    const currentCard = flashcardData.length > 0 ? flashcardData[currentCardIndex] : {};
+    if (!currentCard) {
+      return {
+        sentenceStart: 'Veri yükleniyor...',
+        sentenceEnd: '',
+        progress: { current: currentProgress, total: targetGoal },
+        audioUrl: null
+      };
+    }
 
     console.log("Mevcut kart verisi:", currentCard);
 
@@ -313,8 +382,6 @@ const LingvistFlashcard = () => {
       sentenceEnd = parts.length > 1 ? parts[1].trim() : '';
       
       console.log("Parsed sentence - Start:", sentenceStart, "End:", sentenceEnd);
-    } else if (flashcardData.length > 0) {
-      console.error("Hata: currentCard.sentence bir metin değil veya eksik.", currentCard);
     }
 
     return {
@@ -324,7 +391,7 @@ const LingvistFlashcard = () => {
       progress: { current: currentProgress, total: targetGoal },
       audioUrl: null
     };
-  }, [flashcardData, currentCardIndex, currentProgress, targetGoal]);
+  }, [currentCard, currentProgress, targetGoal]);
 
   const [feedbackColor, setFeedbackColor] = useState('default');
 
@@ -339,36 +406,82 @@ const LingvistFlashcard = () => {
   };
 
   // useCallback fonksiyonlarını useEffect'ten önce tanımla
-  const handleNextQuestion = useCallback(() => {
-    // // Mevcut kelimenin tekrar sayısını artır
-    // const updatedData = flashcardData.map((card, index) => {
-    //   if (index === currentCardIndex) {
-    //     const newRepeatCount = card.repeatCount + 1;
-    //     return { ...card, repeatCount: newRepeatCount };
-    //   }
-    //   return card;
-    // });
+  const handleNextQuestion = useCallback((isCorrectAnswer = true) => {
+    if (!currentCard) return;
 
-    // setFlashcardData(updatedData);
-    // localStorage.setItem('flashcardData', JSON.stringify(updatedData));
+    // Session progress güncelle - WeightedSelectionEngine kullan
+    const newSessionProgress = weightedSelection.updateSessionProgress(currentCard, isCorrectAnswer);
+    const sessionCompleted = newSessionProgress >= 5;
 
-    // // Eğer kelime 5 kez tekrarlandıysa sonraki kelimeye geç
-    // const currentCard = flashcardData[currentCardIndex];
-    // if (currentCard.repeatCount >= 4) { // 0,1,2,3,4 = 5 tekrar
-    //   setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
-    //   incrementProgress();
-    // }
+    // Session progress 5'e ulaştıysa kelime mastered olur
+    const isMastered = sessionCompleted;
 
-    // State'leri önce temizle
+    // Kartı güncelle
+    const updatedCard = {
+      ...currentCard,
+      sessionProgress: newSessionProgress,
+      masteryLevel: isMastered ? 5 : (currentCard.masteryLevel || 0),
+      sessionCompleted: sessionCompleted,
+      lastPracticed: new Date().toISOString()
+    };
+
+    // Veriyi güncelle
+    const updatedData = flashcardData.map(card =>
+      card.id === currentCard.id ? updatedCard : card
+    );
+
+    // Her cevap (doğru/yanlış) global progress'i +1 artır (kart sayacı)
+    incrementProgress();
+
+    // Session progress 5'e ulaştıysa kelime mastered oldu (log)
+    if (isMastered && !currentCard.sessionCompleted) {
+      console.log(`🎉 MASTERED: ${updatedCard.missingWord} (session progress reached 5)`);
+    }
+
+    console.log(`💾 SAVING TO LOCALSTORAGE - Updated card: ${updatedCard.missingWord} (session: ${updatedCard.sessionProgress}, mastered: ${isMastered})`);
+
+    setFlashcardData(updatedData);
+    localStorage.setItem('flashcardData', JSON.stringify(updatedData));
+
+    // localStorage'a kaydedildikten sonra kontrol et
+    const savedData = JSON.parse(localStorage.getItem('flashcardData'));
+    const savedCard = savedData.find(c => c.id === updatedCard.id);
+    console.log(`🔍 VERIFICATION - Saved card: ${savedCard?.missingWord} (session: ${savedCard?.sessionProgress})`);
+
+    // State'leri temizle
     setUserInput('');
     setIsCorrect(null);
     setShowFeedback(false);
     setFeedbackColor('default');
 
-    // Kısa gecikme ile sonraki karta geç (UI update için)
+    // Weighted selection ile sonraki kartı seç
     setTimeout(() => {
-      setCurrentCardIndex(prev => (prev + 1) % flashcardData.length);
-      incrementProgress();
+      // Debug: Card update sonrasını kontrol et
+      console.log(`Debug: Updated card: ${updatedCard.missingWord} -> session: ${updatedCard.sessionProgress}, mastered: ${isMastered}`);
+
+      // Debug: Active cards sayısını kontrol et
+      const activeCards = weightedSelection.getActiveCards(updatedData);
+      const masteredCards = weightedSelection.getMasteredCards(updatedData);
+      console.log(`Debug: Active: ${activeCards.length}, Mastered: ${masteredCards.length}, Total: ${updatedData.length}`);
+
+      if (masteredCards.length > 0) {
+        console.log('Mastered cards:', masteredCards.map(c => `${c.missingWord} (session: ${c.sessionProgress})`));
+      }
+
+      // Debug: Active cards'ın session progress'lerini göster
+      if (activeCards.length > 0) {
+        console.log('Active cards:', activeCards.map(c => `${c.missingWord} (session: ${c.sessionProgress || 0})`));
+      }
+
+      const nextCard = weightedSelection.getNextCard(updatedData);
+      if (nextCard) {
+        console.log(`Next card: ${nextCard.missingWord} (session: ${nextCard.sessionProgress || 0})`);
+        setCurrentCard(nextCard);
+        setCurrentSessionProgress(nextCard.sessionProgress || 0);
+      } else {
+        // Hiç aktif kart kalmadıysa completion screen'e git
+        console.log('Tüm kartlar mastered! Completion screen gösteriliyor...');
+      }
 
       // Input focus'u restore et
       setTimeout(() => {
@@ -377,7 +490,7 @@ const LingvistFlashcard = () => {
         }
       }, 100);
     }, 200);
-  }, [flashcardData.length, incrementProgress]);
+  }, [currentCard, flashcardData, weightedSelection, incrementProgress]);
 
   const handleShowAnswer = useCallback(() => {
     setUserInput(cardData.missingWord);
@@ -387,6 +500,102 @@ const LingvistFlashcard = () => {
       inputRef.current.focus();
     }
   }, [cardData.missingWord]);
+
+  // CSV Export/Import Functions
+  const handleMenuOpen = (event) => {
+    setMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+  };
+
+  const handleExportCSV = () => {
+    try {
+      const csvContent = csvHandler.exportToAnkiCSV(flashcardData);
+      const filename = `flashcards_export_${new Date().toISOString().split('T')[0]}.csv`;
+      csvHandler.downloadCSV(csvContent, filename);
+
+      setAlertInfo({
+        open: true,
+        message: `${flashcardData.length} kart başarıyla export edildi!`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      setAlertInfo({
+        open: true,
+        message: 'Export sırasında hata oluştu: ' + error.message,
+        severity: 'error'
+      });
+    }
+    handleMenuClose();
+  };
+
+  const handleExportMasteredCSV = () => {
+    try {
+      const csvContent = csvHandler.exportMasteredWordsCSV(flashcardData);
+      const filename = `mastered_words_${new Date().toISOString().split('T')[0]}.csv`;
+      csvHandler.downloadCSV(csvContent, filename);
+
+      const masteredCount = flashcardData.filter(card => (card.sessionProgress || 0) >= 5).length;
+      setAlertInfo({
+        open: true,
+        message: `${masteredCount} öğrenilmiş kelime başarıyla export edildi!`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Export mastered error:', error);
+      setAlertInfo({
+        open: true,
+        message: error.message,
+        severity: 'error'
+      });
+    }
+    handleMenuClose();
+  };
+
+  const handleImportCSV = () => {
+    fileInputRef.current?.click();
+    handleMenuClose();
+  };
+
+  const handleFileSelect = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const importedCards = await csvHandler.readCSVFile(file);
+
+      // FSRS format'a migrate et
+      const migratedCards = DataMigrationHelper.migrateOldData(importedCards, fsrsEngine);
+
+      // Mevcut verilerle birleştir
+      const combinedData = [...flashcardData, ...migratedCards];
+      setFlashcardData(combinedData);
+      localStorage.setItem('flashcardData', JSON.stringify(combinedData));
+
+      setAlertInfo({
+        open: true,
+        message: `${importedCards.length} kart başarıyla import edildi!`,
+        severity: 'success'
+      });
+
+      // File input'u temizle
+      event.target.value = '';
+    } catch (error) {
+      console.error('Import error:', error);
+      setAlertInfo({
+        open: true,
+        message: 'Import sırasında hata oluştu: ' + error.message,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleAlertClose = () => {
+    setAlertInfo({ ...alertInfo, open: false });
+  };
 
   // Klavye kısayolları
   useEffect(() => {
@@ -430,26 +639,27 @@ const LingvistFlashcard = () => {
       setIsCorrect(true);
       setFeedbackColor('success');
       setTimeout(() => {
-        handleNextQuestion();
+        handleNextQuestion(true); // Doğru cevap
       }, 1000);
     } else {
       setIsCorrect(false);
-      
+
       const distance = Levenshtein.get(userAnswer, correctAnswer);
       const similarity = 1 - distance / Math.max(userAnswer.length, correctAnswer.length);
 
-      if (similarity > 0.4) {
+      if (similarity > 0.3) {
         setFeedbackColor('warning');
+        // Yakın cevap - tekrar şansı ver
         setTimeout(() => {
           setShowFeedback(false);
           setUserInput('');
         }, 1500);
       } else {
         setFeedbackColor('error');
-        // Yanlış cevap için doğru cevabı göster ve 2 saniye sonra sonraki karta geç
+        // Yanlış cevap - FSRS'e yanlış olarak kaydet
         setUserInput(cardData.missingWord);
         setTimeout(() => {
-          handleNextQuestion();
+          handleNextQuestion(false); // Yanlış cevap
         }, 2000);
       }
     }
@@ -457,13 +667,27 @@ const LingvistFlashcard = () => {
 
 
 
-  if (currentProgress >= targetGoal) {
+  // Check if there are any active cards left or target goal reached
+  const activeCardsCount = weightedSelection.getActiveCards(flashcardData).length;
+  const allCardsMastered = activeCardsCount === 0 && flashcardData.length > 0;
+
+  if (currentProgress >= targetGoal || allCardsMastered) {
     return (
-      <CompletionScreen 
+      <CompletionScreen
         targetGoal={targetGoal}
+        allCardsMastered={allCardsMastered}
         onReset={() => {
           resetProgress();
-          setCurrentCardIndex(0);
+          // Reset all mastery levels to start over
+          const resetData = flashcardData.map(card => ({
+            ...card,
+            masteryLevel: 0,
+            sessionProgress: 0,
+            sessionCompleted: false
+          }));
+          setFlashcardData(resetData);
+          localStorage.setItem('flashcardData', JSON.stringify(resetData));
+          setCurrentCard(null);
         }}
         onNavigateToSettings={handleNavigateToSettings}
       />
@@ -498,27 +722,34 @@ const LingvistFlashcard = () => {
           boxSizing: 'border-box',
         }}
       >
-        {/* Kelime Tekrar Progress'i - Üst Orta */}
-        {/*
+
+        {/* Kelime Tekrar Progress'i - Üst Orta (5 Aşamalı Session Progress) */}
         <Box sx={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {[0, 1, 2, 3, 4].map(step => (
-              <Box
-                key={step}
-                sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  backgroundColor: step < wordProgress 
-                    ? 'secondary.main' 
-                    : 'rgba(255, 255, 255, 0.2)',
-                  transition: 'background-color 0.3s ease',
-                }}
-              />
-            ))}
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {[0, 1, 2, 3, 4].map(step => (
+                <Box
+                  key={step}
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: step < currentSessionProgress
+                      ? 'secondary.main'
+                      : 'rgba(255, 255, 255, 0.2)',
+                    border: step === currentSessionProgress
+                      ? '2px solid rgba(96, 165, 250, 0.8)'
+                      : '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.3s ease',
+                    boxShadow: step < currentSessionProgress
+                      ? '0 0 8px rgba(76, 175, 80, 0.4)'
+                      : 'none',
+                  }}
+                />
+              ))}
+            </Box>
           </Box>
         </Box>
-        */}
 
         {/* İngilizce Cümle */}
         <Box
@@ -749,7 +980,22 @@ const LingvistFlashcard = () => {
         </Box>
       </Box>
 
-
+      {/* Snackbar for CSV operations */}
+      <Snackbar
+        open={alertInfo.open}
+        autoHideDuration={4000}
+        onClose={handleAlertClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleAlertClose}
+          severity={alertInfo.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {alertInfo.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

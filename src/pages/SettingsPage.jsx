@@ -1,58 +1,57 @@
-import { Box, Typography, Slider, Button, Paper } from '@mui/material';
+import { Box, Typography, Slider, Button, Paper, Snackbar, Alert, Grid } from '@mui/material';
 import useSettingsStore from '../stores/useSettingsStore';
+import { themes } from '../theme/themes';
 import { useState, useEffect } from 'react';
 
 const SettingsPage = () => {
   const {
     targetGoal,
-    setTargetGoal
+    setTargetGoal,
+    theme,
+    setTheme
   } = useSettingsStore();
-  
-  const [sliderValue, setSliderValue] = useState(targetGoal);
-  const [maxWords, setMaxWords] = useState(10);
 
-  // Kelime listesindeki toplam kelime sayısını al
-  useEffect(() => {
-    const savedData = localStorage.getItem('flashcardData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        setMaxWords(parsedData.length || 10);
-      } catch (error) {
-        console.error('localStorage veri okuma hatası:', error);
-        setMaxWords(3); // Varsayılan veri sayısı
-      }
-    } else {
-      setMaxWords(3); // Varsayılan veri sayısı
-    }
-  }, []);
-  
+  const [sliderValue, setSliderValue] = useState(targetGoal);
+  const [maxCards, setMaxCards] = useState(200);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+
   const handleSliderChange = (event, newValue) => {
     setSliderValue(newValue);
   };
 
   const handleSave = () => {
     setTargetGoal(sliderValue);
-    alert('Hedef güncellendi!');
+    setSnackbarOpen(true);
+  };
+
+  const handleThemeClick = (themeName) => {
+    setTheme(themeName);
+  };
+
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setSnackbarOpen(false);
   };
 
   return (
     <Box sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
-      <Typography variant="h4" gutterBottom sx={{ color: 'text.primary', mb: 3 }}>
+      <Typography variant="h3" gutterBottom sx={{ color: 'text.primary', mb: 8, textAlign: 'center', fontWeight: 'bold' }}>
         Ayarlar
       </Typography>
       <Paper sx={{ p: 4, backgroundColor: 'background.paper', borderRadius: 3 }}>
-        <Typography variant="h6" sx={{ color: 'text.secondary', mb: 3 }}>
-          Günlük Kelime Hedefi
+        <Typography variant="h6" sx={{ color: 'text.secondary', mb: 3, textAlign: 'center' }}>
+          Günlük Kart Hedefi
         </Typography>
-        
+
         {/* Hedef Değeri Gösterimi */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography variant="h3" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
             {sliderValue}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            kelime / gün
+            kart / gün
           </Typography>
         </Box>
 
@@ -62,9 +61,15 @@ const SettingsPage = () => {
             value={sliderValue}
             onChange={handleSliderChange}
             min={1}
-            max={maxWords}
+            max={maxCards}
             step={1}
-            marks
+            marks={[
+              { value: 1, label: '1' },
+              { value: 50, label: '50' },
+              { value: 100, label: '100' },
+              { value: 150, label: '150' },
+              { value: 200, label: '200' }
+            ]}
             valueLabelDisplay="auto"
             sx={{
               color: 'secondary.main',
@@ -97,19 +102,9 @@ const SettingsPage = () => {
           />
         </Box>
 
-        {/* Min-Max Gösterimi */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, px: 3 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Min: 1
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Max: {maxWords}
-          </Typography>
-        </Box>
-
-        <Button 
-          onClick={handleSave} 
-          variant="contained" 
+        <Button
+          onClick={handleSave}
+          variant="contained"
           color="primary"
           fullWidth
           sx={{ py: 1.5 }}
@@ -117,6 +112,117 @@ const SettingsPage = () => {
           Kaydet
         </Button>
       </Paper>
+
+      {/* Tema Seçimi */}
+      <Paper sx={{ p: 4, backgroundColor: 'background.paper', borderRadius: 3, mt: 4 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary', mb: 3, textAlign: 'center' }}>
+          Tema Seçimi
+        </Typography>
+
+        <Grid container spacing={2} justifyContent="center">
+          {Object.entries(themes).map(([key, themeData]) => (
+            <Grid item xs={6} sm={4} md={2.4} key={key}>
+              <Box
+                onClick={() => handleThemeClick(key)}
+                sx={{
+                  position: 'relative',
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: theme === key ? '3px solid' : '2px solid',
+                  borderColor: theme === key ? 'primary.main' : 'rgba(255, 255, 255, 0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'scale(1.05)',
+                    borderColor: 'primary.main',
+                  }
+                }}
+              >
+                {/* Tema Önizleme */}
+                <Box
+                  sx={{
+                    height: 100,
+                    background: `linear-gradient(135deg, ${themeData.colors.background} 0%, ${themeData.colors.paper} 100%)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {theme === key && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        backgroundColor: 'primary.main',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#ccc9dc',
+                        fontSize: '14px',
+                      }}
+                    >
+                      ✓
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Tema İsmi */}
+                <Box
+                  sx={{
+                    p: 1.5,
+                    backgroundColor: themeData.colors.sidebar,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.primary',
+                      fontWeight: theme === key ? 'bold' : 'normal',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    {themeData.name}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
+
+      {/* Snackbar Bildirimi */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        TransitionProps={{
+          enter: true,
+          exit: true,
+        }}
+        sx={{
+          '& .MuiSnackbar-root': {
+            top: '24px',
+            right: '24px',
+          }
+        }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="success"
+          sx={{
+            width: '100%',
+            boxShadow: 3,
+          }}
+        >
+          Günlük kart hedefi güncellendi: {sliderValue} kart
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
